@@ -273,8 +273,19 @@ class AWSArchitectureAgent:
         try:
             import yaml
             
-            # Parse the CloudFormation template
-            template_data = yaml.safe_load(cf_template)
+            # Parse the CloudFormation template with custom loader to handle !Ref tags
+            class CloudFormationLoader(yaml.SafeLoader):
+                pass
+            
+            # Add constructors for CloudFormation intrinsic functions
+            CloudFormationLoader.add_constructor('!Ref', lambda loader, node: f"!Ref {node.value}")
+            CloudFormationLoader.add_constructor('!GetAtt', lambda loader, node: f"!GetAtt {node.value}")
+            CloudFormationLoader.add_constructor('!Sub', lambda loader, node: f"!Sub {node.value}")
+            CloudFormationLoader.add_constructor('!Join', lambda loader, node: f"!Join {node.value}")
+            CloudFormationLoader.add_constructor('!Select', lambda loader, node: f"!Select {node.value}")
+            CloudFormationLoader.add_constructor('!Split', lambda loader, node: f"!Split {node.value}")
+            
+            template_data = yaml.load(cf_template, Loader=CloudFormationLoader)
             resources = template_data.get('Resources', {})
             
             # Count resource types
