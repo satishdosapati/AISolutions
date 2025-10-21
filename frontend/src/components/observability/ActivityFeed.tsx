@@ -6,7 +6,7 @@
  */
 
 import React, { useEffect, useRef } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Activity, AlertCircle } from 'lucide-react'
 import { ObservabilityEvent } from '../../services/mockEventStream'
 import { EventCard } from './EventCard'

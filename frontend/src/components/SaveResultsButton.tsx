@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react'
-import { Download, FileText, DollarSign, Image as ImageIcon, Check } from 'lucide-react'
+import { Download, Check } from 'lucide-react'
 import JSZip from 'jszip'
 
 interface SaveResultsButtonProps {

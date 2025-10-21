@@ -5,7 +5,7 @@
  */
 
 import React from 'react'
-import { DollarSign, TrendingUp, Info, AlertCircle } from 'lucide-react'
+import { DollarSign, Info, AlertCircle } from 'lucide-react'
 
 interface PricingTabProps {
   pricing: any
@@ -30,9 +30,6 @@ export const PricingTab: React.FC<PricingTabProps> = ({ pricing }) => {
     }).format(amount)
   }
 
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat('en-US').format(num)
-  }
 
   return (
     <div className="space-y-6">
@@ -50,7 +47,7 @@ export const PricingTab: React.FC<PricingTabProps> = ({ pricing }) => {
           <div>
             <p className="text-blue-300 text-sm font-medium">Total Monthly Cost</p>
             <p className="text-3xl font-bold text-white">
-              {formatCurrency(pricing.totalMonthly || 0)}
+              {formatCurrency(parseFloat(pricing.totalMonthlyCost) || 0)}
             </p>
           </div>
           <DollarSign className="w-12 h-12 text-blue-400" />
@@ -102,7 +99,7 @@ export const PricingTab: React.FC<PricingTabProps> = ({ pricing }) => {
                   
                   <div className="text-right ml-4">
                     <p className="text-lg font-semibold text-white">
-                      {formatCurrency(service.cost)}
+                      {formatCurrency(parseFloat(service.cost) || 0)}
                     </p>
                     <p className="text-xs text-slate-400">/month</p>
                   </div>

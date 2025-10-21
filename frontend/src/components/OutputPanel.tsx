@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react'
-import { Cloud, DollarSign, Image as ImageIcon, Download } from 'lucide-react'
+import { Cloud, DollarSign, Image as ImageIcon } from 'lucide-react'
 import { CloudFormationTab } from './CloudFormationTab'
 import { PricingTab } from './PricingTab'
 import { DiagramTab } from './DiagramTab'

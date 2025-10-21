@@ -17,7 +17,7 @@ export type EventType = ObservabilityEvent['type']
 
 class MockEventStream {
   private listeners: Set<(event: ObservabilityEvent) => void> = new Set()
-  private intervalId: NodeJS.Timeout | null = null
+  private intervalId: number | null = null
   private eventCounter = 0
   private isRunning = false
 

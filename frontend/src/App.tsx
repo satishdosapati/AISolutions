@@ -16,15 +16,14 @@ import { generateArchitecture } from './services/api'
 interface ArchitectureData {
   cfTemplate: string
   pricing: {
-    totalMonthly: number
+    totalMonthlyCost: string
     currency: string
     region: string
     breakdown: Array<{
       service: string
-      cost: number
-      type?: string
-      description?: string
-      specifications?: Record<string, any>
+      cost: string
+      unit: string
+      details: string
     }>
     annual?: number
     raw?: any
