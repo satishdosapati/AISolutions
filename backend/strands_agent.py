@@ -230,24 +230,28 @@ class AWSArchitectureAgent:
             return self._get_fallback_diagram_url()
     
     def _calculate_pricing(self, cf_template: str) -> Dict[str, Any]:
-        """Calculate pricing based on CloudFormation template"""
+        """Calculate pricing using Pricing MCP server with optimized input"""
         try:
             pricing_tools = self.pricing_client.list_tools_sync()
             print(f"💰 Discovered {len(pricing_tools)} tools from AWS Pricing MCP Server.")
             
+            # Extract resource summary for pricing (much smaller than full template)
+            resource_summary = self._extract_resources_for_pricing(cf_template)
+            print(f"📊 Extracted {len(resource_summary)} resource types for pricing analysis")
+            
             agent = Agent(tools=pricing_tools)
             
             prompt = f"""
-            Calculate AWS pricing for this CloudFormation template:
+            Calculate AWS pricing for these AWS resources:
             
-            {cf_template}
+            {resource_summary}
             
             Requirements:
-            - Calculate monthly costs for all resources
-            - Break down costs by service
-            - Include region and currency information
-            - Provide detailed breakdown with units
-            - Return structured pricing data
+            - Calculate monthly costs for each resource type
+            - Provide total monthly cost estimate
+            - Include cost breakdown by service
+            - Use US East (N. Virginia) region pricing
+            - Return results in JSON format with totalMonthlyCost, currency, region, and breakdown array
             
             Use current AWS pricing and be as accurate as possible.
             """
@@ -256,11 +260,70 @@ class AWSArchitectureAgent:
             response = agent(prompt)
             print(f"✅ Pricing response received: {len(str(response))} characters")
             
-            return self._extract_pricing_data(str(response))
+            pricing_data = self._extract_pricing_data(str(response))
+            print(f"✅ Extracted pricing data: ${pricing_data.get('totalMonthlyCost', 'N/A')} monthly")
+            return pricing_data
             
         except Exception as e:
             print(f"❌ Error calculating pricing: {e}")
             return self._get_fallback_pricing()
+    
+    def _extract_resources_for_pricing(self, cf_template: str) -> str:
+        """Extract resource types and quantities from CloudFormation template for pricing"""
+        try:
+            import yaml
+            
+            # Parse the CloudFormation template
+            template_data = yaml.safe_load(cf_template)
+            resources = template_data.get('Resources', {})
+            
+            # Count resource types
+            resource_counts = {}
+            for resource_name, resource_config in resources.items():
+                resource_type = resource_config.get('Type', 'Unknown')
+                if resource_type not in resource_counts:
+                    resource_counts[resource_type] = 0
+                resource_counts[resource_type] += 1
+            
+            # Create resource summary
+            resource_summary = "AWS Resources to Price:\n"
+            for resource_type, count in resource_counts.items():
+                resource_summary += f"- {resource_type}: {count} instance(s)\n"
+            
+            # Add common resource details for better pricing
+            resource_summary += "\nCommon Resource Details:\n"
+            for resource_name, resource_config in resources.items():
+                resource_type = resource_config.get('Type', '')
+                properties = resource_config.get('Properties', {})
+                
+                if 'AWS::EC2::Instance' in resource_type:
+                    instance_type = properties.get('InstanceType', 't3.micro')
+                    resource_summary += f"- EC2 Instance ({resource_name}): {instance_type}\n"
+                elif 'AWS::RDS::DBInstance' in resource_type:
+                    db_class = properties.get('DBInstanceClass', 'db.t3.micro')
+                    resource_summary += f"- RDS Instance ({resource_name}): {db_class}\n"
+                elif 'AWS::S3::Bucket' in resource_type:
+                    resource_summary += f"- S3 Bucket ({resource_name}): Standard storage\n"
+                elif 'AWS::VPC' in resource_type:
+                    resource_summary += f"- VPC ({resource_name}): Free networking\n"
+                elif 'AWS::EC2::Subnet' in resource_type:
+                    resource_summary += f"- Subnet ({resource_name}): Free networking\n"
+                elif 'AWS::EC2::SecurityGroup' in resource_type:
+                    resource_summary += f"- Security Group ({resource_name}): Free networking\n"
+                elif 'AWS::EC2::InternetGateway' in resource_type:
+                    resource_summary += f"- Internet Gateway ({resource_name}): Free networking\n"
+                elif 'AWS::EC2::NatGateway' in resource_type:
+                    resource_summary += f"- NAT Gateway ({resource_name}): ~$45/month\n"
+                elif 'AWS::EC2::EIP' in resource_type:
+                    resource_summary += f"- Elastic IP ({resource_name}): ~$3.65/month\n"
+            
+            print(f"📊 Created resource summary: {len(resource_summary)} characters")
+            return resource_summary
+            
+        except Exception as e:
+            print(f"❌ Error extracting resources: {e}")
+            # Fallback to simple resource list
+            return "AWS Resources: VPC, Subnets, Security Groups, NAT Gateway, Elastic IP"
     
     def _extract_cf_template(self, response: str) -> str:
         """Extract CloudFormation template from agent response"""
