@@ -25,7 +25,13 @@ app = FastAPI(
 # Add CORS middleware to allow frontend connections
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],  # Vite default ports
+    allow_origins=[
+        "http://localhost:5173", 
+        "http://localhost:3000",  # Vite default ports
+        "http://44.223.105.170:5173",  # EC2 frontend
+        "http://44.223.105.170",  # EC2 frontend (no port)
+        "*"  # Allow all origins for development
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
