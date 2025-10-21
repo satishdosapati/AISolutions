@@ -126,8 +126,7 @@ class AWSArchitectureAgent:
     
     def generate_architecture(self, requirements: str) -> Dict[str, Any]:
         """
-        Generate complete architecture based on user requirements
-        MCP clients are connected within this method to maintain context
+        Generate complete architecture with sequential MCP server processing
         
         Args:
             requirements: User's AWS architecture requirements
@@ -138,64 +137,292 @@ class AWSArchitectureAgent:
         try:
             print(f"🤖 Generating architecture for: {requirements}")
             
-            # Connect to MCP servers and get tools (following the working example pattern)
+            # Connect to MCP servers and process sequentially
             with self.cfn_client, self.pricing_client, self.diagram_client:
                 print("✅ Connected to AWS CloudFormation MCP Server.")
                 print("✅ Connected to AWS Pricing MCP Server.")
                 print("✅ Connected to AWS Diagram MCP Server.")
 
-                cfn_tools = self.cfn_client.list_tools_sync()
-                print(f"📋 Discovered {len(cfn_tools)} tools from CloudFormation MCP Server.")
-
-                pricing_tools = self.pricing_client.list_tools_sync()
-                print(f"💰 Discovered {len(pricing_tools)} tools from AWS Pricing MCP Server.")
-
-                diagram_tools = self.diagram_client.list_tools_sync()
-                print(f"📊 Discovered {len(diagram_tools)} tools from AWS Diagram MCP Server.")
-
-                # Combine all tools and create agent
-                all_tools = cfn_tools + pricing_tools + diagram_tools
-                agent = Agent(tools=all_tools)
-                print(f"🤖 Strands agent created with {len(all_tools)} combined tools.")
+                # Step 1: Generate CloudFormation Template
+                print("📋 Step 1: Generating CloudFormation template...")
+                cf_template = self._generate_cf_template(requirements)
                 
-                # Craft comprehensive prompt for the agent
-                prompt = f"""
-                Generate a complete AWS architecture based on these requirements: "{requirements}"
+                # Step 2: Generate Architecture Diagram (based on CF template)
+                print("📊 Step 2: Generating architecture diagram...")
+                diagram_url = self._generate_diagram(cf_template)
                 
-                Please provide:
-                1. A complete CloudFormation template (YAML format) with all necessary resources
-                2. A detailed cost estimate with monthly pricing breakdown using the pricing tools
-                3. An architecture diagram showing the components and their relationships using the diagram tools
+                # Step 3: Calculate Pricing (based on CF template)
+                print("💰 Step 3: Calculating pricing...")
+                pricing = self._calculate_pricing(cf_template)
                 
-                For the CloudFormation template:
-                - Include all necessary resources (VPC, subnets, security groups, etc.)
-                - Use best practices and proper resource naming
-                - Include outputs for important values
+                print("🎉 Architecture generation completed successfully!")
                 
-                For the pricing:
-                - Use the pricing tools to get accurate current AWS pricing
-                - Calculate monthly costs for all resources
-                - Break down costs by service
-                - Include region and currency information
-                
-                For the diagram:
-                - Use the diagram tools to create a visual representation
-                - Show data flow and component relationships
-                - Use standard AWS icons and naming conventions
-                """
-                
-                print("🚀 Running Strands agent with MCP tools...")
-                response = agent(prompt)
-                print(f"✅ Agent response received: {len(str(response))} characters")
-                
-                # Parse the agent response to extract structured data
-                result = self._parse_agent_response(str(response))
-                return result
+                return {
+                    "cfTemplate": cf_template,
+                    "diagramUrl": diagram_url,
+                    "pricing": pricing
+                }
                 
         except Exception as e:
             print(f"❌ Error generating architecture: {e}")
             # Return fallback data
             return self._get_fallback_data()
+    
+    def _generate_cf_template(self, requirements: str) -> str:
+        """Generate CloudFormation template using CF MCP server"""
+        try:
+            cfn_tools = self.cfn_client.list_tools_sync()
+            print(f"📋 Discovered {len(cfn_tools)} tools from CloudFormation MCP Server.")
+            
+            agent = Agent(tools=cfn_tools)
+            
+            prompt = f"""
+            Generate a complete CloudFormation template for: "{requirements}"
+            
+            Requirements:
+            - Include all necessary AWS resources (VPC, subnets, security groups, etc.)
+            - Use best practices and proper resource naming
+            - Include outputs for important values
+            - Return only the YAML template in code blocks
+            
+            Template should be production-ready and follow AWS best practices.
+            """
+            
+            print("🚀 Running CloudFormation agent...")
+            response = agent(prompt)
+            print(f"✅ CloudFormation response received: {len(str(response))} characters")
+            
+            return self._extract_cf_template(str(response))
+            
+        except Exception as e:
+            print(f"❌ Error generating CloudFormation template: {e}")
+            return self._get_fallback_cf_template()
+    
+    def _generate_diagram(self, cf_template: str) -> str:
+        """Generate diagram based on CloudFormation template"""
+        try:
+            diagram_tools = self.diagram_client.list_tools_sync()
+            print(f"📊 Discovered {len(diagram_tools)} tools from AWS Diagram MCP Server.")
+            
+            agent = Agent(tools=diagram_tools)
+            
+            prompt = f"""
+            Create an AWS architecture diagram based on this CloudFormation template:
+            
+            {cf_template}
+            
+            Requirements:
+            - Show all components and their relationships
+            - Use standard AWS icons and naming conventions
+            - Include data flow arrows where appropriate
+            - Make it visually clear and professional
+            - Return the diagram URL or file path
+            """
+            
+            print("🚀 Running Diagram agent...")
+            response = agent(prompt)
+            print(f"✅ Diagram response received: {len(str(response))} characters")
+            
+            return self._extract_diagram_url(str(response))
+            
+        except Exception as e:
+            print(f"❌ Error generating diagram: {e}")
+            return self._get_fallback_diagram_url()
+    
+    def _calculate_pricing(self, cf_template: str) -> Dict[str, Any]:
+        """Calculate pricing based on CloudFormation template"""
+        try:
+            pricing_tools = self.pricing_client.list_tools_sync()
+            print(f"💰 Discovered {len(pricing_tools)} tools from AWS Pricing MCP Server.")
+            
+            agent = Agent(tools=pricing_tools)
+            
+            prompt = f"""
+            Calculate AWS pricing for this CloudFormation template:
+            
+            {cf_template}
+            
+            Requirements:
+            - Calculate monthly costs for all resources
+            - Break down costs by service
+            - Include region and currency information
+            - Provide detailed breakdown with units
+            - Return structured pricing data
+            
+            Use current AWS pricing and be as accurate as possible.
+            """
+            
+            print("🚀 Running Pricing agent...")
+            response = agent(prompt)
+            print(f"✅ Pricing response received: {len(str(response))} characters")
+            
+            return self._extract_pricing_data(str(response))
+            
+        except Exception as e:
+            print(f"❌ Error calculating pricing: {e}")
+            return self._get_fallback_pricing()
+    
+    def _extract_cf_template(self, response: str) -> str:
+        """Extract CloudFormation template from agent response"""
+        try:
+            # Look for YAML code blocks
+            cf_match = re.search(r'```yaml\s*(.*?)\s*```', response, re.DOTALL | re.IGNORECASE)
+            if not cf_match:
+                cf_match = re.search(r'```\s*(AWSTemplateFormatVersion.*?)\s*```', response, re.DOTALL)
+            if not cf_match:
+                cf_match = re.search(r'(AWSTemplateFormatVersion.*?)(?=\n\n|\Z)', response, re.DOTALL)
+            
+            if cf_match:
+                template = cf_match.group(1).strip()
+                print(f"✅ Extracted CloudFormation template: {len(template)} characters")
+                return template
+            else:
+                print("⚠️ Could not extract CloudFormation template from response")
+                return self._get_fallback_cf_template()
+                
+        except Exception as e:
+            print(f"❌ Error extracting CloudFormation template: {e}")
+            return self._get_fallback_cf_template()
+    
+    def _extract_diagram_url(self, response: str) -> str:
+        """Extract diagram URL from agent response"""
+        try:
+            # Look for URLs or file paths
+            url_patterns = [
+                r'https?://[^\s]+\.(png|jpg|jpeg|svg)',
+                r'/.*\.(png|jpg|jpeg|svg)',
+                r'diagram.*\.(png|jpg|jpeg|svg)',
+                r'file://[^\s]+'
+            ]
+            
+            for pattern in url_patterns:
+                match = re.search(pattern, response, re.IGNORECASE)
+                if match:
+                    url = match.group(0)
+                    print(f"✅ Extracted diagram URL: {url}")
+                    return url
+            
+            # If no URL found, generate a sample diagram
+            print("⚠️ Could not extract diagram URL from response")
+            return self._get_fallback_diagram_url()
+            
+        except Exception as e:
+            print(f"❌ Error extracting diagram URL: {e}")
+            return self._get_fallback_diagram_url()
+    
+    def _extract_pricing_data(self, response: str) -> Dict[str, Any]:
+        """Extract pricing data from agent response"""
+        try:
+            # Look for pricing patterns
+            pricing_patterns = [
+                r'total.*?cost.*?(\$[\d,]+\.?\d*)',
+                r'monthly.*?cost.*?(\$[\d,]+\.?\d*)',
+                r'cost.*?(\$[\d,]+\.?\d*)',
+            ]
+            
+            total_cost = 0
+            for pattern in pricing_patterns:
+                match = re.search(pattern, response, re.IGNORECASE)
+                if match:
+                    cost_str = match.group(1).replace('$', '').replace(',', '')
+                    try:
+                        total_cost = float(cost_str)
+                        break
+                    except ValueError:
+                        continue
+            
+            # Extract breakdown if available
+            breakdown = []
+            lines = response.split('\n')
+            for line in lines:
+                if '$' in line and any(service in line.lower() for service in ['ec2', 's3', 'rds', 'vpc', 'lambda']):
+                    breakdown.append({
+                        "service": "AWS Service",
+                        "cost": line.strip(),
+                        "unit": "monthly",
+                        "details": line.strip()
+                    })
+            
+            pricing_data = {
+                "totalMonthlyCost": f"${total_cost:.2f}",
+                "currency": "USD",
+                "region": "us-east-1",
+                "breakdown": breakdown,
+                "annual": total_cost * 12 if total_cost > 0 else 0
+            }
+            
+            print(f"✅ Extracted pricing data: ${total_cost:.2f} monthly")
+            return pricing_data
+            
+        except Exception as e:
+            print(f"❌ Error extracting pricing data: {e}")
+            return self._get_fallback_pricing()
+    
+    def _get_fallback_cf_template(self) -> str:
+        """Return fallback CloudFormation template"""
+        return """AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Sample VPC with two subnets'
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: SampleVPC
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet2
+
+Outputs:
+  VPCId:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub '${AWS::StackName}-VPC-ID'"""
+    
+    def _get_fallback_diagram_url(self) -> str:
+        """Return fallback diagram URL"""
+        return "/diagram/sample.png"
+    
+    def _get_fallback_pricing(self) -> Dict[str, Any]:
+        """Return fallback pricing data"""
+        return {
+            "totalMonthlyCost": "$0.00",
+            "currency": "USD",
+            "region": "us-east-1",
+            "breakdown": [
+                {
+                    "service": "VPC",
+                    "cost": "$0.00",
+                    "unit": "monthly",
+                    "details": "VPC is free"
+                }
+            ],
+            "annual": 0
+        }
     
     def _parse_agent_response(self, response: str) -> Dict[str, Any]:
         """
