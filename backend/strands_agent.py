@@ -21,13 +21,14 @@ import base64
 from datetime import datetime
 
 class AWSArchitectureAgent:
-    def __init__(self):
+    def __init__(self, readonly_mode: bool = True):
         """Initialize the Strands agent with AWS MCP servers"""
         self.agent = None
         self.cfn_client = None
         self.pricing_client = None
         self.diagram_client = None
         self._clients_connected = False
+        self.readonly_mode = readonly_mode
         
     def connect_to_mcp_servers(self):
         """Connect to all three AWS MCP servers"""
@@ -37,16 +38,22 @@ class AWSArchitectureAgent:
             # Initialize MCP clients based on the working example
             if os.name == 'nt':  # Windows
                 print("📱 Detected Windows - using Windows MCP server commands")
+                
+                # CloudFormation MCP with read-only option
+                cfn_args = [
+                    "tool",
+                    "run",
+                    "--from",
+                    "awslabs.cfn-mcp-server@latest",
+                    "awslabs.cfn-mcp-server.exe"
+                ]
+                if self.readonly_mode:
+                    cfn_args.append("--readonly")
+                
                 self.cfn_client = MCPClient(lambda: stdio_client(
                     StdioServerParameters(
                         command="uv",
-                        args=[
-                            "tool",
-                            "run",
-                            "--from",
-                            "awslabs.cfn-mcp-server@latest",
-                            "awslabs.cfn-mcp-server.exe"
-                        ]
+                        args=cfn_args
                     )
                 ))
                 
@@ -77,10 +84,16 @@ class AWSArchitectureAgent:
                 ))
             else:  # macOS/Linux
                 print("🐧 Detected Linux/macOS - using standard MCP server commands")
+                
+                # CloudFormation MCP with read-only option
+                cfn_args = ["awslabs.cfn-mcp-server@latest"]
+                if self.readonly_mode:
+                    cfn_args.append("--readonly")
+                
                 self.cfn_client = MCPClient(lambda: stdio_client(
                     StdioServerParameters(
                         command="uvx",
-                        args=["awslabs.cfn-mcp-server@latest"]
+                        args=cfn_args
                     )
                 ))
                 
@@ -99,6 +112,8 @@ class AWSArchitectureAgent:
                 ))
             
             print("✅ MCP clients initialized successfully")
+            if self.readonly_mode:
+                print("🔒 CloudFormation MCP server configured in READ-ONLY mode")
             print("💡 Clients will be connected during agent execution")
             
             return True
@@ -381,5 +396,5 @@ def get_aws_agent() -> AWSArchitectureAgent:
     """Get or create the global AWS agent instance"""
     global aws_agent
     if aws_agent is None:
-        aws_agent = AWSArchitectureAgent()
+        aws_agent = AWSArchitectureAgent(readonly_mode=True)
     return aws_agent
