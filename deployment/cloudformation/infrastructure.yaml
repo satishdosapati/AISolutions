@@ -23,21 +23,13 @@ Parameters:
     Default: 0.0.0.0/0
     Description: CIDR block allowed to SSH into the instance (0.0.0.0/0 for anywhere)
     AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
-
-Mappings:
-  RegionMap:
-    # Amazon Linux 3 AMI IDs - Verify these are current for your deployment date
-    us-east-1:
-      AMI: ami-0ff8a91507f77f867  # Amazon Linux 3 - verify current AMI
-    # us-west-2:
-    #   AMI: ami-0d70546e43a8d2c1a  # Amazon Linux 3 - verify current AMI
-    # eu-west-1:
-    #   AMI: ami-0c94855ba95b798c7  # Amazon Linux 3 - verify current AMI
-    # ap-southeast-1:
-    #   AMI: ami-0c2b8ca1dad447f8a  # Amazon Linux 3 - verify current AMI
+  
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-minimal-kernel-default-x86_64'
 
 Conditions:
-  CreateEC2InstanceProfile: !Equals [!Ref 'AWS::Region', !Ref 'AWS::Region']
+  CreateEC2InstanceProfile: !Equals [!Ref 'AWS::Region', 'us-east-1']
 
 Resources:
   # VPC Configuration
@@ -197,7 +189,7 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref InstanceType
-      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
+      ImageId: !Ref LatestAmiId
       KeyName: !Ref KeyPairName
       SecurityGroupIds:
         - !Ref InstanceSecurityGroup
