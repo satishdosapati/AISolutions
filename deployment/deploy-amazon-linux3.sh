@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 APP_DIR="/home/ec2-user/aws-agentic-web-ui"
-REPO_URL="${REPO_URL:-https://github.com/your-username/aws-agentic-web-ui.git}"  # Update this with your actual repository URL
+REPO_URL="${REPO_URL:-https://github.com/satishdosapati/AISolutions.git}"  # Update this with your actual repository URL
 AWS_REGION="${AWS_REGION:-us-east-1}"
 
 echo -e "${BLUE}📋 Configuration:${NC}"
