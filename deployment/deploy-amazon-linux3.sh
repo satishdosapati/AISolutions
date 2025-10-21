@@ -45,7 +45,7 @@ print_status "System updated"
 # Install dependencies
 echo -e "${BLUE}📦 Installing dependencies...${NC}"
 echo -e "${BLUE}ℹ️  Note: Basic dependencies should already be installed via CloudFormation UserData${NC}"
-dnf install -y python3.11 python3.11-pip python3.11-devel git curl wget unzip
+dnf install -y python3.11 python3.11-pip python3.11-devel git wget unzip
 dnf groupinstall -y "Development Tools"
 dnf install -y cmake nginx firewalld
 
