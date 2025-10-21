@@ -1,0 +1,24 @@
+[Unit]
+Description=AWS Agentic Frontend
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/aws-agentic-web-ui/frontend
+ExecStart=/usr/bin/npm run preview -- --host 0.0.0.0 --port 5173
+Restart=always
+RestartSec=10
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aws-agentic-frontend
+
+[Install]
+WantedBy=multi-user.target

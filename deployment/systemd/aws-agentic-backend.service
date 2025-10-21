@@ -1,0 +1,26 @@
+[Unit]
+Description=AWS Agentic Backend
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/aws-agentic-web-ui/backend
+Environment=PATH=/home/ec2-user/aws-agentic-web-ui/backend/venv/bin
+ExecStart=/home/ec2-user/aws-agentic-web-ui/backend/venv/bin/uvicorn server:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/ec2-user/aws-agentic-web-ui/backend/diagrams
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aws-agentic-backend
+
+[Install]
+WantedBy=multi-user.target

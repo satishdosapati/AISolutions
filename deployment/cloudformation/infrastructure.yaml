@@ -1,0 +1,318 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Agentic Web UI Infrastructure - VPC, Subnets, Internet Gateway, Route Tables, and EC2 Instance'
+
+Parameters:
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    ConstraintDescription: Must be the name of an existing EC2 KeyPair
+  
+  InstanceType:
+    Type: String
+    Default: t3.medium
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+      - t3.large
+      - t3.xlarge
+    Description: EC2 instance type for the application server
+  
+  AllowedSSHCIDR:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR block allowed to SSH into the instance (0.0.0.0/0 for anywhere)
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+
+Mappings:
+  RegionMap:
+    # Amazon Linux 3 AMI IDs - Verify these are current for your deployment date
+    us-east-1:
+      AMI: ami-0c02fb55956c7d316  # Amazon Linux 3 - verify current AMI
+    us-west-2:
+      AMI: ami-0d70546e43a8d2c1a  # Amazon Linux 3 - verify current AMI
+    eu-west-1:
+      AMI: ami-0c94855ba95b798c7  # Amazon Linux 3 - verify current AMI
+    ap-southeast-1:
+      AMI: ami-0c2b8ca1dad447f8a  # Amazon Linux 3 - verify current AMI
+
+Conditions:
+  CreateEC2InstanceProfile: !Equals [!Ref 'AWS::Region', !Ref 'AWS::Region']
+
+Resources:
+  # VPC Configuration
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-vpc'
+        - Key: Purpose
+          Value: AWS Agentic Web UI Infrastructure
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-igw'
+
+  # Attach Internet Gateway to VPC
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  # Public Subnet
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-public-subnet'
+        - Key: Purpose
+          Value: AWS Agentic Web UI Public Subnet
+
+  # Route Table for Public Subnet
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-public-routes'
+
+  # Default route to Internet Gateway
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # Associate Public Subnet with Route Table
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet
+
+  # Security Group for EC2 Instance
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${AWS::StackName}-instance-sg'
+      GroupDescription: Security group for AWS Agentic Web UI instance
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        # SSH access
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AllowedSSHCIDR
+          Description: SSH access from specified CIDR
+        # HTTP access
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP access from anywhere
+        # HTTPS access
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS access from anywhere
+        # Backend API access
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          CidrIp: 0.0.0.0/0
+          Description: Backend API access from anywhere
+        # Frontend development server access
+        - IpProtocol: tcp
+          FromPort: 5173
+          ToPort: 5173
+          CidrIp: 0.0.0.0/0
+          Description: Frontend development server access from anywhere
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-instance-sg'
+
+  # IAM Role for EC2 Instance
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Condition: CreateEC2InstanceProfile
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-ec2-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Policies:
+        - PolicyName: EC2BasicPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:DescribeImages
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeVpcs
+                  - cloudformation:DescribeStacks
+                  - cloudformation:ListStackResources
+                Resource: '*'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-ec2-role'
+
+  # Instance Profile for EC2
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Condition: CreateEC2InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+  # EC2 Instance
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
+      KeyName: !Ref KeyPairName
+      SecurityGroupIds:
+        - !Ref InstanceSecurityGroup
+      SubnetId: !Ref PublicSubnet
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          dnf update -y
+          
+          # Install basic tools
+          dnf install -y git curl wget unzip
+          
+          # Install Python 3.11 and development tools
+          dnf install -y python3.11 python3.11-pip python3.11-devel
+          dnf groupinstall -y "Development Tools"
+          dnf install -y cmake
+          
+          # Install Node.js 18+
+          curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+          dnf install -y nodejs
+          
+          # Install Nginx and firewall
+          dnf install -y nginx firewalld
+          
+          # Install AWS CLI v2
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          ./aws/install
+          rm -rf aws awscliv2.zip
+          
+          # Configure services
+          systemctl enable nginx firewalld
+          
+          # Configure AWS CLI region
+          aws configure set region ${AWS::Region}
+          
+          # Create application directory
+          mkdir -p /home/ec2-user/aws-agentic-web-ui
+          chown ec2-user:ec2-user /home/ec2-user/aws-agentic-web-ui
+          
+          # Signal CloudFormation that instance is ready
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource WebServerInstance --region ${AWS::Region}
+      
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-webserver'
+        - Key: Purpose
+          Value: AWS Agentic Web UI Application Server
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            DeleteOnTermination: true
+            Encrypted: true
+
+Outputs:
+  VPCId:
+    Description: ID of the VPC
+    Value: !Ref VPC
+    Export:
+      Name: !Sub '${AWS::StackName}-VPC-ID'
+
+  PublicSubnetId:
+    Description: ID of the public subnet
+    Value: !Ref PublicSubnet
+    Export:
+      Name: !Sub '${AWS::StackName}-PublicSubnet-ID'
+
+  SecurityGroupId:
+    Description: ID of the security group
+    Value: !Ref InstanceSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroup-ID'
+
+  InstanceId:
+    Description: ID of the EC2 instance
+    Value: !Ref WebServerInstance
+    Export:
+      Name: !Sub '${AWS::StackName}-Instance-ID'
+
+  InstancePublicIP:
+    Description: Public IP address of the EC2 instance
+    Value: !GetAtt WebServerInstance.PublicIp
+    Export:
+      Name: !Sub '${AWS::StackName}-Instance-PublicIP'
+
+  InstancePublicDNS:
+    Description: Public DNS name of the EC2 instance
+    Value: !GetAtt WebServerInstance.PublicDnsName
+    Export:
+      Name: !Sub '${AWS::StackName}-Instance-PublicDNS'
+
+  SSHCommand:
+    Description: SSH command to connect to the instance
+    Value: !Sub 'ssh -i <path-to-keyfile> ec2-user@${WebServerInstance.PublicIp}'
+
+  FrontendURL:
+    Description: URL to access the frontend application
+    Value: !Sub 'http://${WebServerInstance.PublicIp}'
+
+  BackendURL:
+    Description: URL to access the backend API
+    Value: !Sub 'http://${WebServerInstance.PublicIp}/api/'
+
+  HealthCheckURL:
+    Description: URL for health check endpoint
+    Value: !Sub 'http://${WebServerInstance.PublicIp}/'
+
+  NextSteps:
+    Description: Next steps to complete the deployment
+    Value: !Sub |
+      Next Steps:
+      1. SSH into the instance: ssh -i <keyfile> ec2-user@${WebServerInstance.PublicIp}
+      2. Clone your repository: git clone <your-repo-url>
+      3. Run deployment script: cd <repo> && sudo bash deployment/deploy-amazon-linux3.sh
+      4. Access application at: http://${WebServerInstance.PublicIp}
