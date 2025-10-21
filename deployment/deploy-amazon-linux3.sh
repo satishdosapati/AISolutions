@@ -67,6 +67,24 @@ else
     print_status "AWS CLI already installed"
 fi
 
+# Install uv (Python package installer for AWS MCP servers)
+echo -e "${BLUE}📦 Installing uv (required for AWS MCP servers)...${NC}"
+if ! command -v uvx &> /dev/null; then
+    # Install uv as ec2-user
+    sudo -u ec2-user bash -c 'curl -LsSf https://astral.sh/uv/install.sh | sh'
+    
+    # Create system-wide symlinks
+    ln -sf /home/ec2-user/.cargo/bin/uv /usr/local/bin/uv
+    ln -sf /home/ec2-user/.cargo/bin/uvx /usr/local/bin/uvx
+    
+    # Add to ec2-user's PATH
+    echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> /home/ec2-user/.bashrc
+    
+    print_status "uv installed successfully"
+else
+    print_status "uv already installed"
+fi
+
 # Configure AWS CLI
 if [ ! -f /home/ec2-user/.aws/config ]; then
     echo -e "${BLUE}🔧 Configuring AWS CLI...${NC}"

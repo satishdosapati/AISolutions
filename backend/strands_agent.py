@@ -27,7 +27,7 @@ class AWSArchitectureAgent:
         self.cfn_client = None
         self.pricing_client = None
         self.diagram_client = None
-        self._clients_connected = False
+        self._clients_initialized = False
         self.readonly_mode = readonly_mode
         
     def connect_to_mcp_servers(self):
@@ -116,6 +116,8 @@ class AWSArchitectureAgent:
                 print("🔒 CloudFormation MCP server configured in READ-ONLY mode")
             print("💡 Clients will be connected during agent execution")
             
+            # Mark clients as initialized
+            self._clients_initialized = True
             return True
                 
         except Exception as e:

@@ -193,8 +193,8 @@ async def generate_architecture(request: GenerateRequest):
     try:
         agent = get_aws_agent()
         
-        # Check if agent is properly initialized
-        if agent.agent is None:
+        # Check if MCP clients are properly initialized
+        if not agent._clients_initialized:
             raise Exception("Strands agent not initialized - MCP servers not connected")
         
         # Generate real architecture using Strands agent

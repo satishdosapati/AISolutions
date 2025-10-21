@@ -49,6 +49,16 @@ Date | Change | Impact | Next Steps
 **Impact:** Frontend now successfully connects to backend. System working as designed - 500 errors indicate MCP servers need Linux environment, which is expected behavior.
 **Next Steps:** Deploy to Linux EC2 instance for full functionality testing with working MCP servers
 
+### 2025-10-21 | MCP Server Connection Issue Fixed
+**Change:** Fixed critical bug where backend failed to connect to MCP servers on EC2 deployment. Root cause was missing `uv` (Python package installer) required to run AWS MCP servers via `uvx` commands. Fixed initialization check logic that was incorrectly looking at `agent.agent` instead of `_clients_initialized` flag.
+**Impact:** 
+- Created `fix-mcp-servers.sh` script for quick remediation on deployed instances
+- Updated `deploy-amazon-linux3.sh` to install `uv` during deployment
+- Updated systemd service configuration to include correct PATH with `~/.cargo/bin`
+- Created comprehensive `TROUBLESHOOTING.md` guide
+- Backend will now properly initialize MCP servers on Linux EC2 instances
+**Next Steps:** Deploy updated code to EC2 instance and run fix script to resolve connection issues
+
 ---
 
 ## Future Enhancements
