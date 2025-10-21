@@ -3,23 +3,26 @@
  * 
  * Main architecture generation interface.
  * Uses shared state from App component via Outlet context.
+ * Now with async polling for long-running generation tasks.
  */
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { InputPanel } from './components/InputPanel'
-import { LoadingSpinner } from './components/LoadingSpinner'
-import { ErrorAlert } from './components/ErrorAlert'
-import { OutputPanel } from './components/OutputPanel'
+import { InputPanel } from '../components/InputPanel'
+import { LoadingSpinner } from '../components/LoadingSpinner'
+import { ErrorAlert } from '../components/ErrorAlert'
+import { OutputPanel } from '../components/OutputPanel'
+import { startGeneration, getGenerationStatus } from '../services/api'
 
 interface GeneratorContext {
   requirements: string
   setRequirements: (value: string) => void
   isGenerating: boolean
+  setIsGenerating: (value: boolean) => void
   error: string | null
+  setError: (value: string | null) => void
   architectureData: any
-  handleGenerate: () => void
-  handleClear: () => void
+  setArchitectureData: (value: any) => void
 }
 
 const Generator: React.FC = () => {
@@ -27,11 +30,84 @@ const Generator: React.FC = () => {
     requirements,
     setRequirements,
     isGenerating,
+    setIsGenerating,
     error,
+    setError,
     architectureData,
-    handleGenerate,
-    handleClear
+    setArchitectureData
   } = useOutletContext<GeneratorContext>()
+  
+  const [progress, setProgress] = useState(0)
+  const [progressMessage, setProgressMessage] = useState('')
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null)
+
+  // Poll for task status
+  useEffect(() => {
+    if (!currentTaskId || !isGenerating) {
+      return
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const status = await getGenerationStatus(currentTaskId)
+        
+        setProgress(status.progress)
+        setProgressMessage(status.message)
+        
+        if (status.status === 'completed' && status.data) {
+          setArchitectureData(status.data)
+          setIsGenerating(false)
+          setCurrentTaskId(null)
+          clearInterval(pollInterval)
+        } else if (status.status === 'failed') {
+          setError(status.error || 'Generation failed')
+          setIsGenerating(false)
+          setCurrentTaskId(null)
+          clearInterval(pollInterval)
+        }
+      } catch (err) {
+        console.error('Failed to poll task status:', err)
+        setError('Failed to check generation status')
+        setIsGenerating(false)
+        setCurrentTaskId(null)
+        clearInterval(pollInterval)
+      }
+    }, 2000) // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval)
+  }, [currentTaskId, isGenerating, setArchitectureData, setError, setIsGenerating])
+
+  const handleGenerate = async () => {
+    if (!requirements.trim()) {
+      setError('Please enter your AWS architecture requirements')
+      return
+    }
+
+    setIsGenerating(true)
+    setError(null)
+    setArchitectureData(null)
+    setProgress(0)
+    setProgressMessage('Starting generation...')
+
+    try {
+      // Start generation
+      const response = await startGeneration(requirements)
+      setCurrentTaskId(response.task_id)
+      setProgressMessage(response.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+      setIsGenerating(false)
+    }
+  }
+
+  const handleClear = () => {
+    setRequirements('')
+    setError(null)
+    setArchitectureData(null)
+    setProgress(0)
+    setProgressMessage('')
+    setCurrentTaskId(null)
+  }
 
   return (
     <div className="space-y-8">
@@ -55,11 +131,27 @@ const Generator: React.FC = () => {
         isGenerating={isGenerating}
       />
 
-      {/* Loading State */}
-      {isGenerating && <LoadingSpinner />}
+      {/* Loading State with Progress */}
+      {isGenerating && (
+        <div className="bg-slate-800 border border-slate-700 rounded-lg p-8">
+          <div className="text-center space-y-4">
+            <LoadingSpinner />
+            <div className="space-y-2">
+              <div className="text-lg font-medium text-slate-200">{progressMessage}</div>
+              <div className="w-full bg-slate-700 rounded-full h-2.5">
+                <div 
+                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
+              <div className="text-sm text-slate-400">{progress}% complete</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error State */}
-      {error && <ErrorAlert message={error} onDismiss={() => {}} />}
+      {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
 
       {/* Results */}
       {architectureData && !isGenerating && (

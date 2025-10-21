@@ -117,3 +117,50 @@ export const streamEvents = (): EventSource => {
   const baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'
   return new EventSource(`${baseURL}/events/stream`)
 }
+
+// Async generation types
+export interface TaskStartResponse {
+  task_id: string
+  message: string
+}
+
+export interface TaskStatus {
+  task_id: string
+  status: 'started' | 'generating_cf' | 'completed' | 'failed'
+  progress: number
+  message: string
+  started_at: string
+  completed_at: string | null
+  data: any
+  error: string | null
+}
+
+/**
+ * Start architecture generation as a background task
+ */
+export const startGeneration = async (requirements: string): Promise<TaskStartResponse> => {
+  try {
+    const response = await api.post<TaskStartResponse>('/generate/start', { requirements })
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.detail || 'Failed to start generation')
+    }
+    throw error instanceof Error ? error : new Error('An unexpected error occurred')
+  }
+}
+
+/**
+ * Check the status of a generation task
+ */
+export const getGenerationStatus = async (taskId: string): Promise<TaskStatus> => {
+  try {
+    const response = await api.get<TaskStatus>(`/generate/status/${taskId}`)
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.detail || 'Failed to get task status')
+    }
+    throw error instanceof Error ? error : new Error('An unexpected error occurred')
+  }
+}

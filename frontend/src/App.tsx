@@ -70,10 +70,11 @@ function App() {
         requirements,
         setRequirements,
         isGenerating,
+        setIsGenerating,
         error,
+        setError,
         architectureData,
-        handleGenerate,
-        handleClear
+        setArchitectureData
       }} />
     </AppLayout>
   )

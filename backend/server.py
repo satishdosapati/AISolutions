@@ -5,7 +5,7 @@ This FastAPI server integrates with Strands agent and AWS MCP servers to generat
 real CloudFormation templates, pricing estimates, and architecture diagrams.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
@@ -13,8 +13,10 @@ from pydantic import BaseModel
 import os
 import subprocess
 import json
-from typing import Dict, Any, List
+import uuid
+from typing import Dict, Any, List, Optional
 import asyncio
+from datetime import datetime
 from strands_agent import get_aws_agent
 
 # Initialize FastAPI app
@@ -41,6 +43,9 @@ app.add_middleware(
 
 # Mount static files for serving diagrams
 app.mount("/diagram", StaticFiles(directory="diagrams"), name="diagrams")
+
+# Task storage for async generation
+active_tasks: Dict[str, Dict[str, Any]] = {}
 
 # Initialize AWS agent on startup
 @app.on_event("startup")
@@ -186,6 +191,111 @@ async def root():
         "strands_agents": "✅ Connected",
         "mcp_servers": "✅ Ready"
     }
+
+# Async task generation endpoints
+class TaskStartResponse(BaseModel):
+    task_id: str
+    message: str
+
+class TaskStatus(BaseModel):
+    task_id: str
+    status: str
+    progress: int
+    message: str
+    started_at: str
+    completed_at: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+def run_generation_task(task_id: str, requirements: str):
+    """Background task to run architecture generation"""
+    try:
+        # Update status to generating CloudFormation
+        active_tasks[task_id]["status"] = "generating_cf"
+        active_tasks[task_id]["progress"] = 10
+        active_tasks[task_id]["message"] = "🔧 Generating CloudFormation template..."
+        
+        agent = get_aws_agent()
+        
+        # Check if MCP clients are properly initialized
+        if not agent._clients_initialized:
+            raise Exception("Strands agent not initialized - MCP servers not connected")
+        
+        # Update progress
+        active_tasks[task_id]["progress"] = 20
+        active_tasks[task_id]["message"] = "🏗️ Creating AWS architecture..."
+        
+        # Generate architecture
+        print(f"🤖 [Task {task_id[:8]}] Generating architecture for: {requirements[:50]}...")
+        response_data = agent.generate_architecture(requirements)
+        
+        # Mark as completed
+        active_tasks[task_id]["status"] = "completed"
+        active_tasks[task_id]["progress"] = 100
+        active_tasks[task_id]["message"] = "✅ Architecture generation complete!"
+        active_tasks[task_id]["data"] = response_data
+        active_tasks[task_id]["completed_at"] = datetime.now().isoformat()
+        
+        print(f"✅ [Task {task_id[:8]}] Architecture generation completed successfully!")
+        
+    except Exception as e:
+        print(f"❌ [Task {task_id[:8]}] Error: {e}")
+        active_tasks[task_id]["status"] = "failed"
+        active_tasks[task_id]["progress"] = 0
+        active_tasks[task_id]["message"] = "❌ Generation failed"
+        active_tasks[task_id]["error"] = str(e)
+        active_tasks[task_id]["completed_at"] = datetime.now().isoformat()
+
+@app.post("/generate/start", response_model=TaskStartResponse)
+async def start_generation(request: GenerateRequest, background_tasks: BackgroundTasks):
+    """
+    Start architecture generation as a background task.
+    Returns immediately with a task ID for polling.
+    """
+    task_id = str(uuid.uuid4())
+    
+    # Initialize task
+    active_tasks[task_id] = {
+        "status": "started",
+        "progress": 0,
+        "message": "🚀 Starting architecture generation...",
+        "started_at": datetime.now().isoformat(),
+        "completed_at": None,
+        "data": None,
+        "error": None
+    }
+    
+    # Run generation in background
+    background_tasks.add_task(run_generation_task, task_id, request.requirements)
+    
+    print(f"🎬 [Task {task_id[:8]}] Started generation task")
+    
+    return TaskStartResponse(
+        task_id=task_id,
+        message="Architecture generation started. Use the task_id to check status."
+    )
+
+@app.get("/generate/status/{task_id}", response_model=TaskStatus)
+async def get_generation_status(task_id: str):
+    """
+    Check the status of an architecture generation task.
+    Poll this endpoint to get progress updates.
+    """
+    if task_id not in active_tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    task = active_tasks[task_id]
+    
+    return TaskStatus(
+        task_id=task_id,
+        status=task["status"],
+        progress=task["progress"],
+        message=task["message"],
+        started_at=task["started_at"],
+        completed_at=task.get("completed_at"),
+        data=task.get("data"),
+        error=task.get("error")
+    )
 
 @app.post("/generate", response_model=GenerateResponse)
 async def generate_architecture(request: GenerateRequest):
