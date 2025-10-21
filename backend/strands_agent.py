@@ -376,11 +376,44 @@ class AWSArchitectureAgent:
     def _extract_pricing_data(self, response: str) -> Dict[str, Any]:
         """Extract pricing data from agent response"""
         try:
-            # Look for pricing patterns
+            # First try to extract JSON from code blocks
+            json_match = re.search(r'```json\s*(.*?)\s*```', response, re.DOTALL | re.IGNORECASE)
+            if json_match:
+                import json
+                json_str = json_match.group(1).strip()
+                pricing_json = json.loads(json_str)
+                
+                # Convert to expected format
+                total_cost = pricing_json.get('totalMonthlyCost', 0)
+                if isinstance(total_cost, str):
+                    total_cost = float(total_cost.replace('$', '').replace(',', ''))
+                
+                # Convert breakdown to expected format
+                breakdown = []
+                for item in pricing_json.get('breakdown', []):
+                    breakdown.append({
+                        "service": item.get('service', 'Unknown'),
+                        "cost": f"${item.get('monthlyCost', 0):.2f}",
+                        "unit": "monthly",
+                        "details": item.get('description', '') or item.get('details', '')
+                    })
+                
+                pricing_data = {
+                    "totalMonthlyCost": f"${total_cost:.2f}",
+                    "currency": pricing_json.get('currency', 'USD'),
+                    "region": pricing_json.get('region', 'us-east-1'),
+                    "breakdown": breakdown,
+                    "annual": total_cost * 12 if total_cost > 0 else 0
+                }
+                
+                print(f"✅ Extracted pricing data from JSON: ${total_cost:.2f} monthly")
+                return pricing_data
+            
+            # Fallback to regex extraction if no JSON found
             pricing_patterns = [
-                r'total.*?cost.*?(\$[\d,]+\.?\d*)',
-                r'monthly.*?cost.*?(\$[\d,]+\.?\d*)',
-                r'cost.*?(\$[\d,]+\.?\d*)',
+                r'total.*?cost.*?(\$?[\d,]+\.?\d*)',
+                r'monthly.*?cost.*?(\$?[\d,]+\.?\d*)',
+                r'cost.*?(\$?[\d,]+\.?\d*)',
             ]
             
             total_cost = 0
@@ -398,7 +431,7 @@ class AWSArchitectureAgent:
             breakdown = []
             lines = response.split('\n')
             for line in lines:
-                if '$' in line and any(service in line.lower() for service in ['ec2', 's3', 'rds', 'vpc', 'lambda']):
+                if '$' in line and any(service in line.lower() for service in ['ec2', 's3', 'rds', 'vpc', 'lambda', 'nat', 'elastic']):
                     breakdown.append({
                         "service": "AWS Service",
                         "cost": line.strip(),
@@ -410,7 +443,14 @@ class AWSArchitectureAgent:
                 "totalMonthlyCost": f"${total_cost:.2f}",
                 "currency": "USD",
                 "region": "us-east-1",
-                "breakdown": breakdown,
+                "breakdown": breakdown if breakdown else [
+                    {
+                        "service": "Various AWS Services",
+                        "cost": f"${total_cost:.2f}",
+                        "unit": "monthly",
+                        "details": "Estimated monthly cost"
+                    }
+                ],
                 "annual": total_cost * 12 if total_cost > 0 else 0
             }
             
