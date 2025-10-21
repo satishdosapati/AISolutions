@@ -242,18 +242,35 @@ class AWSArchitectureAgent:
             agent = Agent(tools=pricing_tools)
             
             prompt = f"""
-            Calculate AWS pricing for these AWS resources:
+            Provide AWS cost estimate for these resources:
             
             {resource_summary}
             
-            Requirements:
-            - Calculate monthly costs for each resource type
-            - Provide total monthly cost estimate
-            - Include cost breakdown by service
-            - Use US East (N. Virginia) region pricing
-            - Return results in JSON format with totalMonthlyCost, currency, region, and breakdown array
+            Return JSON format:
+            {{
+              "totalMonthlyCost": <number>,
+              "currency": "USD",
+              "region": "US East (N. Virginia)",
+              "breakdown": [
+                {{
+                  "resourceType": "<AWS::Service::Type>",
+                  "quantity": <number>,
+                  "unitCost": <number>,
+                  "monthlyCost": <number>,
+                  "description": "<description>"
+                }}
+              ]
+            }}
             
-            Use current AWS pricing and be as accurate as possible.
+            Use these standard pricing estimates:
+            - VPC/Subnet/RouteTable/InternetGateway: Free
+            - NAT Gateway: $0.045/hour = $32.40/month per gateway
+            - EIP (when attached to NAT Gateway): Free
+            - VPC Flow Logs: $0.50 per GB ingested (estimate 50GB = $25/month)
+            - CloudWatch Logs: $0.50 per GB (estimate 10GB = $5/month)
+            - Security Groups: Free
+            
+            Calculate costs based on resource quantities in the summary above.
             """
             
             print("🚀 Running Pricing agent...")
