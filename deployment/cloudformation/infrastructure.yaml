@@ -28,13 +28,13 @@ Mappings:
   RegionMap:
     # Amazon Linux 3 AMI IDs - Verify these are current for your deployment date
     us-east-1:
-      AMI: ami-0c02fb55956c7d316  # Amazon Linux 3 - verify current AMI
-    us-west-2:
-      AMI: ami-0d70546e43a8d2c1a  # Amazon Linux 3 - verify current AMI
-    eu-west-1:
-      AMI: ami-0c94855ba95b798c7  # Amazon Linux 3 - verify current AMI
-    ap-southeast-1:
-      AMI: ami-0c2b8ca1dad447f8a  # Amazon Linux 3 - verify current AMI
+      AMI: ami-0ff8a91507f77f867  # Amazon Linux 3 - verify current AMI
+    # us-west-2:
+    #   AMI: ami-0d70546e43a8d2c1a  # Amazon Linux 3 - verify current AMI
+    # eu-west-1:
+    #   AMI: ami-0c94855ba95b798c7  # Amazon Linux 3 - verify current AMI
+    # ap-southeast-1:
+    #   AMI: ami-0c2b8ca1dad447f8a  # Amazon Linux 3 - verify current AMI
 
 Conditions:
   CreateEC2InstanceProfile: !Equals [!Ref 'AWS::Region', !Ref 'AWS::Region']
