@@ -8,16 +8,23 @@
 
 import { createBrowserRouter } from 'react-router-dom'
 import App from './App'
+import GeneratorPage from './pages/GeneratorPage'
 import ObservabilityPage from './pages/ObservabilityPage'
 
 const router = createBrowserRouter([
   {
     path: '/',
     element: <App />,
-  },
-  {
-    path: '/observability',
-    element: <ObservabilityPage />,
+    children: [
+      {
+        index: true,
+        element: <GeneratorPage />,
+      },
+      {
+        path: 'observability',
+        element: <ObservabilityPage />,
+      },
+    ],
   },
 ])
 

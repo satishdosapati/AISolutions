@@ -1,11 +1,12 @@
 /**
- * AWS Agentic Web UI - Main Application Component
+ * Main App Component with State Management
  * 
- * Phase 5: Refactored into clean, modular components with enhanced features
- * Now wrapped with AppLayout for navigation
+ * This component manages the shared state between Generator and Observability tabs.
+ * State is preserved when switching between tabs.
  */
 
 import React, { useState } from 'react'
+import { Outlet } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
 import { InputPanel } from './components/InputPanel'
 import { LoadingSpinner } from './components/LoadingSpinner'
@@ -33,55 +34,47 @@ interface ArchitectureData {
 
 function App() {
   const [requirements, setRequirements] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [result, setResult] = useState<ArchitectureData | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [architectureData, setArchitectureData] = useState<ArchitectureData | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!requirements.trim()) return
+  const handleGenerate = async () => {
+    if (!requirements.trim()) {
+      setError('Please enter your AWS architecture requirements')
+      return
+    }
 
-    setLoading(true)
-    setError('')
-    setResult(null)
+    setIsGenerating(true)
+    setError(null)
+    setArchitectureData(null)
 
     try {
       const response = await generateArchitecture(requirements)
-      setResult(response.data)
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to generate architecture')
+      setArchitectureData(response.data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
     } finally {
-      setLoading(false)
+      setIsGenerating(false)
     }
   }
 
-  const handleDismissError = () => {
-    setError('')
+  const handleClear = () => {
+    setRequirements('')
+    setError(null)
+    setArchitectureData(null)
   }
 
   return (
     <AppLayout>
-      <div>
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">AWS Agentic Architecture Generator</h1>
-          <p className="text-slate-400">Generate CloudFormation templates, pricing estimates, and architecture diagrams using AI</p>
-        </header>
-
-        <InputPanel
-          requirements={requirements}
-          setRequirements={setRequirements}
-          onSubmit={handleSubmit}
-          loading={loading}
-        />
-
-        {error && (
-          <ErrorAlert error={error} onDismiss={handleDismissError} />
-        )}
-
-        {loading && <LoadingSpinner />}
-
-        {result && <OutputPanel data={result} />}
-      </div>
+      <Outlet context={{
+        requirements,
+        setRequirements,
+        isGenerating,
+        error,
+        architectureData,
+        handleGenerate,
+        handleClear
+      }} />
     </AppLayout>
   )
 }

@@ -1,13 +1,13 @@
 /**
  * useEventStream Hook
  * 
- * Custom hook for consuming mock event stream data.
+ * Custom hook for consuming real backend logs as events.
  * Manages event state and provides filtering capabilities.
- * Ready for real WebSocket integration later.
+ * Now connects to real backend observability endpoints.
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { ObservabilityEvent, EventType, mockEventStream } from '../services/mockEventStream'
+import { ObservabilityEvent, EventType, getEvents, streamEvents } from '../services/api'
 
 interface UseEventStreamOptions {
   maxEvents?: number
@@ -35,47 +35,72 @@ export const useEventStream = (options: UseEventStreamOptions = {}): UseEventStr
     new Set(['agent_to_mcp', 'mcp_response', 'processing', 'output', 'error'])
   )
   const [isStreaming, setIsStreaming] = useState(false)
+  const [eventSource, setEventSource] = useState<EventSource | null>(null)
 
   // Filter events based on active filters
   const filteredEvents = events.filter(event => activeFilters.has(event.type))
 
-  // Event handler for new events
-  const handleNewEvent = useCallback((event: ObservabilityEvent) => {
-    setEvents(prevEvents => {
-      const newEvents = [event, ...prevEvents]
-      // Keep only the most recent events (performance optimization)
-      return newEvents.slice(0, maxEvents)
-    })
+  // Load initial events from backend
+  const loadInitialEvents = useCallback(async () => {
+    try {
+      const response = await getEvents(maxEvents)
+      setEvents(response.events)
+    } catch (error) {
+      console.error('Failed to load initial events:', error)
+      // Fallback to empty array if backend is not available
+      setEvents([])
+    }
   }, [maxEvents])
 
-  // Start the event stream
+  // Start real-time streaming
   const startStream = useCallback(() => {
     if (isStreaming) return
     
-    setIsStreaming(true)
-    mockEventStream.start()
-    
-    // Subscribe to events
-    const unsubscribe = mockEventStream.subscribe(handleNewEvent)
-    
-    // Store unsubscribe function for cleanup
-    return unsubscribe
-  }, [isStreaming, handleNewEvent])
+    try {
+      const source = streamEvents()
+      setEventSource(source)
+      setIsStreaming(true)
+      
+      source.onmessage = (event) => {
+        try {
+          const newEvent: ObservabilityEvent = JSON.parse(event.data)
+          setEvents(prevEvents => {
+            const newEvents = [newEvent, ...prevEvents]
+            // Keep only the most recent events (performance optimization)
+            return newEvents.slice(0, maxEvents)
+          })
+        } catch (error) {
+          console.error('Failed to parse event:', error)
+        }
+      }
+      
+      source.onerror = (error) => {
+        console.error('EventSource error:', error)
+        setIsStreaming(false)
+        setEventSource(null)
+      }
+      
+    } catch (error) {
+      console.error('Failed to start event stream:', error)
+      setIsStreaming(false)
+    }
+  }, [isStreaming, maxEvents])
 
-  // Stop the event stream
+  // Stop streaming
   const stopStream = useCallback(() => {
-    if (!isStreaming) return
-    
+    if (eventSource) {
+      eventSource.close()
+      setEventSource(null)
+    }
     setIsStreaming(false)
-    mockEventStream.stop()
-  }, [isStreaming])
+  }, [eventSource])
 
   // Clear all events
   const clearEvents = useCallback(() => {
     setEvents([])
   }, [])
 
-  // Toggle a specific filter
+  // Toggle filter
   const toggleFilter = useCallback((type: EventType) => {
     setActiveFilters(prev => {
       const newFilters = new Set(prev)
@@ -88,37 +113,28 @@ export const useEventStream = (options: UseEventStreamOptions = {}): UseEventStr
     })
   }, [])
 
-  // Set all filters at once
+  // Set filters
   const setFilters = useCallback((filters: Set<EventType>) => {
     setActiveFilters(filters)
   }, [])
 
-  // Generate a burst of events for testing
-  const generateBurst = useCallback((count: number = 5) => {
-    mockEventStream.generateBurst(count)
-  }, [])
+  // Generate burst (for testing - now just reloads from backend)
+  const generateBurst = useCallback(async (count?: number) => {
+    await loadInitialEvents()
+  }, [loadInitialEvents])
 
-  // Auto-start stream on mount if enabled
+  // Load initial events and start streaming on mount
   useEffect(() => {
+    loadInitialEvents()
+    
     if (autoStart) {
-      const unsubscribe = startStream()
-      
-      // Cleanup on unmount
-      return () => {
-        if (unsubscribe) {
-          unsubscribe()
-        }
-        stopStream()
-      }
+      startStream()
     }
-  }, [autoStart, startStream, stopStream])
-
-  // Cleanup on unmount
-  useEffect(() => {
+    
     return () => {
       stopStream()
     }
-  }, [stopStream])
+  }, [loadInitialEvents, autoStart, startStream, stopStream])
 
   return {
     events,

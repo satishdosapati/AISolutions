@@ -80,3 +80,40 @@ export const healthCheck = async (): Promise<{ message: string; status: string }
   const response = await api.get('/')
   return response.data
 }
+
+// Observability API types
+export interface ObservabilityEvent {
+  id: string
+  type: 'agent_to_mcp' | 'mcp_response' | 'processing' | 'output' | 'error'
+  timestamp: string
+  message: string
+  metadata?: Record<string, any>
+}
+
+export interface EventsResponse {
+  events: ObservabilityEvent[]
+  total: number
+}
+
+/**
+ * Get recent backend logs as events
+ */
+export const getEvents = async (limit: number = 100): Promise<EventsResponse> => {
+  try {
+    const response = await api.get<EventsResponse>(`/events?limit=${limit}`)
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.detail || 'Failed to fetch events')
+    }
+    throw error instanceof Error ? error : new Error('An unexpected error occurred')
+  }
+}
+
+/**
+ * Stream events in real-time using Server-Sent Events
+ */
+export const streamEvents = (): EventSource => {
+  const baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'
+  return new EventSource(`${baseURL}/events/stream`)
+}

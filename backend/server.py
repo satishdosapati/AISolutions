@@ -8,10 +8,12 @@ real CloudFormation templates, pricing estimates, and architecture diagrams.
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 import os
-from typing import Dict, Any
+import subprocess
+import json
+from typing import Dict, Any, List
 import asyncio
 from strands_agent import get_aws_agent
 
@@ -235,6 +237,110 @@ async def get_diagram(filename: str):
         return FileResponse(file_path)
     else:
         raise HTTPException(status_code=404, detail="Diagram not found")
+
+# Observability endpoints
+@app.get("/events")
+async def get_events(limit: int = 100):
+    """Get recent backend logs as events for observability dashboard"""
+    try:
+        # Get recent logs from journalctl
+        result = subprocess.run([
+            'journalctl', '-u', 'aws-agentic-backend', 
+            '-n', str(limit), '--no-pager', '--output=json'
+        ], capture_output=True, text=True, timeout=10)
+        
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail="Failed to fetch logs")
+        
+        events = []
+        for line in result.stdout.strip().split('\n'):
+            if line.strip():
+                try:
+                    log_entry = json.loads(line)
+                    # Convert journalctl log to event format
+                    event = {
+                        "id": f"log_{log_entry.get('__REALTIME_TIMESTAMP', 'unknown')}",
+                        "type": _categorize_log_message(log_entry.get('MESSAGE', '')),
+                        "timestamp": log_entry.get('__REALTIME_TIMESTAMP', ''),
+                        "message": log_entry.get('MESSAGE', ''),
+                        "metadata": {
+                            "priority": log_entry.get('PRIORITY', ''),
+                            "unit": log_entry.get('_SYSTEMD_UNIT', ''),
+                            "hostname": log_entry.get('_HOSTNAME', '')
+                        }
+                    }
+                    events.append(event)
+                except json.JSONDecodeError:
+                    continue
+        
+        return {"events": events, "total": len(events)}
+        
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=500, detail="Log fetch timeout")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching logs: {str(e)}")
+
+@app.get("/events/stream")
+async def stream_events():
+    """Stream backend logs in real-time using Server-Sent Events"""
+    async def event_generator():
+        try:
+            # Start journalctl follow mode
+            process = await asyncio.create_subprocess_exec(
+                'journalctl', '-u', 'aws-agentic-backend', '-f', '--no-pager', '--output=json',
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            while True:
+                line = await process.stdout.readline()
+                if not line:
+                    break
+                    
+                try:
+                    log_entry = json.loads(line.decode().strip())
+                    event = {
+                        "id": f"stream_{log_entry.get('__REALTIME_TIMESTAMP', 'unknown')}",
+                        "type": _categorize_log_message(log_entry.get('MESSAGE', '')),
+                        "timestamp": log_entry.get('__REALTIME_TIMESTAMP', ''),
+                        "message": log_entry.get('MESSAGE', ''),
+                        "metadata": {
+                            "priority": log_entry.get('PRIORITY', ''),
+                            "unit": log_entry.get('_SYSTEMD_UNIT', ''),
+                            "hostname": log_entry.get('_HOSTNAME', '')
+                        }
+                    }
+                    
+                    yield f"data: {json.dumps(event)}\n\n"
+                    
+                except json.JSONDecodeError:
+                    continue
+                    
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/plain",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+    )
+
+def _categorize_log_message(message: str) -> str:
+    """Categorize log messages into event types"""
+    message_lower = message.lower()
+    
+    if any(keyword in message_lower for keyword in ['error', 'failed', 'exception']):
+        return 'error'
+    elif any(keyword in message_lower for keyword in ['tool #', 'mcp', 'agent']):
+        return 'agent_to_mcp'
+    elif any(keyword in message_lower for keyword in ['response', 'returned', 'provided']):
+        return 'mcp_response'
+    elif any(keyword in message_lower for keyword in ['processing', 'generating', 'calculating', 'extracting']):
+        return 'processing'
+    elif any(keyword in message_lower for keyword in ['completed', 'success', 'generated', 'created']):
+        return 'output'
+    else:
+        return 'processing'  # Default category
 
 if __name__ == "__main__":
     import uvicorn
