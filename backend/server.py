@@ -41,8 +41,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files for serving diagrams
-app.mount("/diagram", StaticFiles(directory="diagrams"), name="diagrams")
+# Mount static files for serving diagrams (ensure absolute path)
+diagrams_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "diagrams")
+os.makedirs(diagrams_path, exist_ok=True)
+app.mount("/diagram", StaticFiles(directory=diagrams_path), name="diagrams")
 
 # Task storage for async generation
 active_tasks: Dict[str, Dict[str, Any]] = {}
@@ -342,7 +344,7 @@ async def generate_architecture(request: GenerateRequest):
 @app.get("/diagram/{filename}")
 async def get_diagram(filename: str):
     """Serve diagram images"""
-    file_path = f"diagrams/{filename}"
+    file_path = os.path.join(diagrams_path, filename)
     if os.path.exists(file_path):
         return FileResponse(file_path)
     else:

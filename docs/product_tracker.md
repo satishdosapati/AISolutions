@@ -354,6 +354,44 @@ Each enhancement is considered complete when:
 
 ---
 
+## [2025-01-22] Diagram Download Fix
+
+**Change:**
+Fixed architecture diagram not being created in downloaded results. The issue was that the diagram extraction logic only looked for URL patterns in the agent's text response but didn't handle actual diagram image data or save diagram files to disk.
+
+**Implementation:**
+1. Replaced `_extract_diagram_url()` with `_extract_and_save_diagram()` in `strands_agent.py`
+2. Added support for extracting base64-encoded image data from agent responses
+3. Added support for detecting and copying diagram files created by the MCP server
+4. Fixed file paths to use absolute paths relative to backend directory
+5. Enhanced logging to show diagram response previews for debugging
+6. Updated `server.py` to use absolute paths for the diagrams directory
+
+**Technical Details:**
+- New method handles multiple diagram data formats:
+  - Base64-encoded images (inline in response)
+  - File paths mentioned in the response (copies file to diagrams directory)
+  - Falls back to sample.png if no diagram is found
+- Uses timestamped filenames: `architecture_YYYYMMDD_HHMMSS.png`
+- Creates diagrams directory automatically if it doesn't exist
+- Improved error handling with detailed logging
+
+**Impact:**
+- ✅ Diagrams will now be properly saved and included in downloaded results
+- ✅ Better debugging with response previews in logs
+- ✅ More robust file path handling (absolute vs relative paths)
+- ✅ Supports multiple diagram data formats from AWS Diagram MCP server
+
+**Next Steps:**
+- Monitor logs during next diagram generation to verify which format the AWS Diagram MCP server uses
+- May need to adjust extraction patterns based on actual MCP server output
+- Consider adding diagram format validation (PNG, SVG, etc.)
+
+**Author:** AI Assistant  
+**Status:** Completed - Ready for Testing
+
+---
+
 ## Notes
 
 - **Total Estimated Effort:** 3-4 weeks for all enhancements

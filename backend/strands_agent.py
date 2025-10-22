@@ -16,6 +16,7 @@ import os
 import time
 import json
 import re
+import shutil
 from typing import Dict, Any, Optional
 import base64
 from datetime import datetime
@@ -216,14 +217,19 @@ class AWSArchitectureAgent:
             - Use standard AWS icons and naming conventions
             - Include data flow arrows where appropriate
             - Make it visually clear and professional
-            - Return the diagram URL or file path
+            - Save the diagram as a PNG file
             """
             
             print("🚀 Running Diagram agent...")
             response = agent(prompt)
             print(f"✅ Diagram response received: {len(str(response))} characters")
             
-            return self._extract_diagram_url(str(response))
+            # Log first 500 characters of response for debugging
+            response_preview = str(response)[:500]
+            print(f"📝 Diagram response preview: {response_preview}...")
+            
+            # Extract and save diagram
+            return self._extract_and_save_diagram(str(response))
             
         except Exception as e:
             print(f"❌ Error generating diagram: {e}")
@@ -375,30 +381,75 @@ class AWSArchitectureAgent:
             print(f"❌ Error extracting CloudFormation template: {e}")
             return self._get_fallback_cf_template()
     
-    def _extract_diagram_url(self, response: str) -> str:
-        """Extract diagram URL from agent response"""
+    def _extract_and_save_diagram(self, response: str) -> str:
+        """Extract diagram data from agent response and save it to a file"""
         try:
-            # Look for URLs or file paths
-            url_patterns = [
-                r'https?://[^\s]+\.(png|jpg|jpeg|svg)',
-                r'/.*\.(png|jpg|jpeg|svg)',
-                r'diagram.*\.(png|jpg|jpeg|svg)',
-                r'file://[^\s]+'
+            # Create diagrams directory if it doesn't exist (relative to backend directory)
+            backend_dir = os.path.dirname(os.path.abspath(__file__))
+            diagrams_dir = os.path.join(backend_dir, "diagrams")
+            os.makedirs(diagrams_dir, exist_ok=True)
+            
+            # Generate unique filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            diagram_filename = f"architecture_{timestamp}.png"
+            diagram_path = os.path.join(diagrams_dir, diagram_filename)
+            
+            # Try to extract base64 image data from the response
+            base64_patterns = [
+                r'data:image/[^;]+;base64,([A-Za-z0-9+/=\s]+)',
+                r'<img[^>]+src="data:image/[^;]+;base64,([A-Za-z0-9+/=\s]+)"',
+                r'```base64\s*([A-Za-z0-9+/=\s]+)\s*```',
             ]
             
-            for pattern in url_patterns:
+            for pattern in base64_patterns:
+                match = re.search(pattern, response, re.IGNORECASE | re.DOTALL)
+                if match:
+                    try:
+                        # Extract and clean base64 data
+                        base64_data = match.group(1).strip().replace('\n', '').replace(' ', '')
+                        diagram_data = base64.b64decode(base64_data)
+                        
+                        # Save to file
+                        with open(diagram_path, "wb") as f:
+                            f.write(diagram_data)
+                        
+                        print(f"✅ Diagram saved to: {diagram_path}")
+                        return f"/diagram/{diagram_filename}"
+                    except Exception as e:
+                        print(f"⚠️ Failed to decode base64 image: {e}")
+                        continue
+            
+            # Try to find existing file path in the response
+            file_path_patterns = [
+                r'(?:file://)?([/\\]?[\w/\\.-]+\.(?:png|jpg|jpeg|svg))',
+                r'(?:saved|created|written) (?:to|at|as):?\s*([/\\]?[\w/\\.-]+\.(?:png|jpg|jpeg|svg))',
+            ]
+            
+            for pattern in file_path_patterns:
                 match = re.search(pattern, response, re.IGNORECASE)
                 if match:
-                    url = match.group(0)
-                    print(f"✅ Extracted diagram URL: {url}")
-                    return url
+                    source_path = match.group(1).strip()
+                    if os.path.exists(source_path):
+                        try:
+                            # Copy the file to our diagrams directory
+                            import shutil
+                            shutil.copy(source_path, diagram_path)
+                            print(f"✅ Diagram copied from {source_path} to {diagram_path}")
+                            return f"/diagram/{diagram_filename}"
+                        except Exception as e:
+                            print(f"⚠️ Failed to copy diagram file: {e}")
+                            continue
+                    else:
+                        print(f"⚠️ Diagram file not found at: {source_path}")
             
-            # If no URL found, generate a sample diagram
-            print("⚠️ Could not extract diagram URL from response")
+            # If no diagram found, use fallback
+            print("⚠️ Could not extract or save diagram from response")
             return self._get_fallback_diagram_url()
             
         except Exception as e:
-            print(f"❌ Error extracting diagram URL: {e}")
+            print(f"❌ Error extracting and saving diagram: {e}")
+            import traceback
+            traceback.print_exc()
             return self._get_fallback_diagram_url()
     
     def _extract_pricing_data(self, response: str) -> Dict[str, Any]:
