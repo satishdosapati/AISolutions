@@ -90,6 +90,48 @@ export interface ObservabilityEvent {
   metadata?: Record<string, any>
 }
 
+export interface SolutionMetadata {
+  id: string
+  title: string
+  description: string
+  requirements: string
+  tags: string[]
+  created_at: string
+  updated_at: string
+  user_id?: string
+}
+
+export interface SolutionData {
+  metadata: SolutionMetadata
+  cfTemplate: string
+  pricing: any
+  diagramUrl: string
+  raw_data: any
+}
+
+export interface SaveSolutionRequest {
+  title: string
+  description: string
+  tags: string[]
+  solution_data: any
+}
+
+export interface Template {
+  id: string
+  name: string
+  description: string
+  category: string
+  requirements: string
+  tags: string[]
+  created_at: string
+}
+
+export interface DashboardStats {
+  total_solutions: number
+  recent_solutions: SolutionData[]
+  popular_tags: Array<[string, number]>
+}
+
 export interface EventsResponse {
   events: ObservabilityEvent[]
   total: number
@@ -163,4 +205,41 @@ export const getGenerationStatus = async (taskId: string): Promise<TaskStatus> =
     }
     throw error instanceof Error ? error : new Error('An unexpected error occurred')
   }
+}
+
+// Solution Management API functions
+
+export const saveSolution = async (request: SaveSolutionRequest): Promise<{success: boolean, solution_id: string, message: string}> => {
+  const response = await api.post('/api/solutions/save', request)
+  return response.data
+}
+
+export const listSolutions = async (search?: string, tags?: string, limit: number = 20): Promise<{solutions: SolutionData[], total: number, limit: number}> => {
+  const params = new URLSearchParams()
+  if (search) params.append('search', search)
+  if (tags) params.append('tags', tags)
+  params.append('limit', limit.toString())
+  
+  const response = await api.get(`/api/solutions?${params.toString()}`)
+  return response.data
+}
+
+export const getSolution = async (solutionId: string): Promise<SolutionData> => {
+  const response = await api.get(`/api/solutions/${solutionId}`)
+  return response.data
+}
+
+export const deleteSolution = async (solutionId: string): Promise<{success: boolean, message: string}> => {
+  const response = await api.delete(`/api/solutions/${solutionId}`)
+  return response.data
+}
+
+export const listTemplates = async (): Promise<{templates: Template[]}> => {
+  const response = await api.get('/api/templates')
+  return response.data
+}
+
+export const getDashboardStats = async (): Promise<DashboardStats> => {
+  const response = await api.get('/api/dashboard/stats')
+  return response.data
 }

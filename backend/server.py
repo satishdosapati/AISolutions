@@ -5,7 +5,7 @@ This FastAPI server integrates with Strands agent and AWS MCP servers to generat
 real CloudFormation templates, pricing estimates, and architecture diagrams.
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
@@ -49,6 +49,10 @@ app.mount("/diagram", StaticFiles(directory=diagrams_path), name="diagrams")
 # Task storage for async generation
 active_tasks: Dict[str, Dict[str, Any]] = {}
 
+# Solution storage directory
+solutions_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "solutions")
+os.makedirs(solutions_dir, exist_ok=True)
+
 # Initialize AWS agent on startup
 @app.on_event("startup")
 async def startup_event():
@@ -70,6 +74,38 @@ async def startup_event():
 # Request/Response models
 class GenerateRequest(BaseModel):
     requirements: str
+
+class SolutionMetadata(BaseModel):
+    id: str
+    title: str
+    description: str
+    requirements: str
+    tags: List[str]
+    created_at: datetime
+    updated_at: datetime
+    user_id: Optional[str] = None
+
+class SolutionData(BaseModel):
+    metadata: SolutionMetadata
+    cfTemplate: str
+    pricing: Dict[str, Any]
+    diagramUrl: str
+    raw_data: Dict[str, Any]
+
+class SaveSolutionRequest(BaseModel):
+    title: str
+    description: str
+    tags: List[str]
+    solution_data: Dict[str, Any]
+
+class TemplateData(BaseModel):
+    id: str
+    name: str
+    description: str
+    category: str
+    requirements: str
+    tags: List[str]
+    created_at: datetime
 
 class GenerateResponse(BaseModel):
     success: bool
@@ -436,6 +472,220 @@ async def stream_events():
         media_type="text/plain",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
     )
+
+# Solution Management Endpoints
+
+@app.post("/api/solutions/save")
+async def save_solution(request: SaveSolutionRequest):
+    """Save a generated solution with metadata"""
+    try:
+        solution_id = str(uuid.uuid4())
+        now = datetime.now()
+        
+        # Create solution metadata
+        metadata = SolutionMetadata(
+            id=solution_id,
+            title=request.title,
+            description=request.description,
+            requirements=request.solution_data.get('requirements', ''),
+            tags=request.tags,
+            created_at=now,
+            updated_at=now
+        )
+        
+        # Create solution data
+        solution = SolutionData(
+            metadata=metadata,
+            cfTemplate=request.solution_data.get('cfTemplate', ''),
+            pricing=request.solution_data.get('pricing', {}),
+            diagramUrl=request.solution_data.get('diagramUrl', ''),
+            raw_data=request.solution_data
+        )
+        
+        # Save to file
+        solution_file = os.path.join(solutions_dir, f"{solution_id}.json")
+        with open(solution_file, 'w') as f:
+            json.dump(solution.dict(), f, indent=2, default=str)
+        
+        return {"success": True, "solution_id": solution_id, "message": "Solution saved successfully"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save solution: {str(e)}")
+
+@app.get("/api/solutions")
+async def list_solutions(
+    search: Optional[str] = Query(None),
+    tags: Optional[str] = Query(None),
+    limit: int = Query(20, ge=1, le=100)
+):
+    """List saved solutions with optional search and filtering"""
+    try:
+        solutions = []
+        
+        # Get all solution files
+        for filename in os.listdir(solutions_dir):
+            if filename.endswith('.json'):
+                try:
+                    with open(os.path.join(solutions_dir, filename), 'r') as f:
+                        solution_data = json.load(f)
+                        solutions.append(solution_data)
+                except Exception as e:
+                    print(f"Error loading solution {filename}: {e}")
+                    continue
+        
+        # Sort by creation date (newest first)
+        solutions.sort(key=lambda x: x['metadata']['created_at'], reverse=True)
+        
+        # Apply search filter
+        if search:
+            search_lower = search.lower()
+            solutions = [
+                s for s in solutions
+                if (search_lower in s['metadata']['title'].lower() or
+                    search_lower in s['metadata']['description'].lower() or
+                    search_lower in s['metadata']['requirements'].lower())
+            ]
+        
+        # Apply tag filter
+        if tags:
+            tag_list = [tag.strip() for tag in tags.split(',')]
+            solutions = [
+                s for s in solutions
+                if any(tag.lower() in [t.lower() for t in s['metadata']['tags']] for tag in tag_list)
+            ]
+        
+        # Apply limit
+        solutions = solutions[:limit]
+        
+        return {
+            "solutions": solutions,
+            "total": len(solutions),
+            "limit": limit
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list solutions: {str(e)}")
+
+@app.get("/api/solutions/{solution_id}")
+async def get_solution(solution_id: str):
+    """Get a specific solution by ID"""
+    try:
+        solution_file = os.path.join(solutions_dir, f"{solution_id}.json")
+        
+        if not os.path.exists(solution_file):
+            raise HTTPException(status_code=404, detail="Solution not found")
+        
+        with open(solution_file, 'r') as f:
+            solution_data = json.load(f)
+        
+        return solution_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get solution: {str(e)}")
+
+@app.delete("/api/solutions/{solution_id}")
+async def delete_solution(solution_id: str):
+    """Delete a solution by ID"""
+    try:
+        solution_file = os.path.join(solutions_dir, f"{solution_id}.json")
+        
+        if not os.path.exists(solution_file):
+            raise HTTPException(status_code=404, detail="Solution not found")
+        
+        os.remove(solution_file)
+        
+        return {"success": True, "message": "Solution deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete solution: {str(e)}")
+
+@app.get("/api/templates")
+async def list_templates():
+    """Get pre-built solution templates"""
+    try:
+        templates = [
+            {
+                "id": "web-app-3-tier",
+                "name": "3-Tier Web Application",
+                "description": "Classic web application with load balancer, application servers, and database",
+                "category": "Web Application",
+                "requirements": "Create a 3-tier web application with Application Load Balancer, auto-scaling EC2 instances, and RDS MySQL database",
+                "tags": ["web", "3-tier", "load-balancer", "auto-scaling", "rds"],
+                "created_at": datetime.now().isoformat()
+            },
+            {
+                "id": "serverless-api",
+                "name": "Serverless API",
+                "description": "Serverless API using API Gateway, Lambda, and DynamoDB",
+                "category": "Serverless",
+                "requirements": "Build a serverless API with API Gateway, Lambda functions, and DynamoDB for data storage",
+                "tags": ["serverless", "api", "lambda", "dynamodb", "api-gateway"],
+                "created_at": datetime.now().isoformat()
+            },
+            {
+                "id": "data-pipeline",
+                "name": "Data Analytics Pipeline",
+                "description": "Data processing pipeline with S3, Lambda, and analytics services",
+                "category": "Data Analytics",
+                "requirements": "Design a data analytics pipeline with S3 storage, Lambda processing, and analytics services",
+                "tags": ["data", "analytics", "s3", "lambda", "pipeline"],
+                "created_at": datetime.now().isoformat()
+            },
+            {
+                "id": "microservices-eks",
+                "name": "Microservices on EKS",
+                "description": "Containerized microservices architecture using Amazon EKS",
+                "category": "Microservices",
+                "requirements": "Create a microservices architecture using Amazon EKS with container orchestration",
+                "tags": ["microservices", "eks", "kubernetes", "containers", "orchestration"],
+                "created_at": datetime.now().isoformat()
+            }
+        ]
+        
+        return {"templates": templates}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get templates: {str(e)}")
+
+@app.get("/api/dashboard/stats")
+async def get_dashboard_stats():
+    """Get dashboard statistics"""
+    try:
+        # Count solutions
+        solution_count = len([f for f in os.listdir(solutions_dir) if f.endswith('.json')])
+        
+        # Get recent solutions
+        recent_solutions = []
+        for filename in os.listdir(solutions_dir):
+            if filename.endswith('.json'):
+                try:
+                    with open(os.path.join(solutions_dir, filename), 'r') as f:
+                        solution_data = json.load(f)
+                        recent_solutions.append(solution_data)
+                except Exception:
+                    continue
+        
+        recent_solutions.sort(key=lambda x: x['metadata']['created_at'], reverse=True)
+        recent_solutions = recent_solutions[:5]
+        
+        # Count by tags
+        tag_counts = {}
+        for solution in recent_solutions:
+            for tag in solution['metadata']['tags']:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        
+        return {
+            "total_solutions": solution_count,
+            "recent_solutions": recent_solutions,
+            "popular_tags": sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get dashboard stats: {str(e)}")
 
 def _categorize_log_message(message: str) -> str:
     """Categorize log messages into event types"""

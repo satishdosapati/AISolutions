@@ -5,24 +5,56 @@
  */
 
 import React, { useState } from 'react'
-import { Cloud, DollarSign, Image as ImageIcon } from 'lucide-react'
+import { Cloud, DollarSign, Image as ImageIcon, Save, Plus } from 'lucide-react'
 import { CloudFormationTab } from './CloudFormationTab'
 import { PricingTab } from './PricingTab'
 import { DiagramTab } from './DiagramTab'
 import { SaveResultsButton } from './SaveResultsButton'
+import { saveSolution } from '../services/api'
 
 interface OutputPanelProps {
   data: {
     cfTemplate: string
     pricing: any
     diagramUrl: string
+    requirements?: string
   } | null
 }
 
 export const OutputPanel: React.FC<OutputPanelProps> = ({ data }) => {
   const [activeTab, setActiveTab] = useState<'cloudformation' | 'pricing' | 'diagram'>('cloudformation')
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [saveTitle, setSaveTitle] = useState('')
+  const [saveDescription, setSaveDescription] = useState('')
+  const [saveTags, setSaveTags] = useState('')
+  const [saving, setSaving] = useState(false)
 
   if (!data) return null
+
+  const handleSaveSolution = async () => {
+    if (!saveTitle.trim()) return
+    
+    try {
+      setSaving(true)
+      const tags = saveTags.split(',').map(tag => tag.trim()).filter(tag => tag)
+      
+      await saveSolution({
+        title: saveTitle,
+        description: saveDescription,
+        tags,
+        solution_data: data
+      })
+      
+      setShowSaveDialog(false)
+      setSaveTitle('')
+      setSaveDescription('')
+      setSaveTags('')
+    } catch (error) {
+      console.error('Failed to save solution:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const tabs = [
     {
@@ -47,10 +79,19 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({ data }) => {
 
   return (
     <div className="bg-slate-800 rounded-lg border border-slate-700">
-      {/* Header with Save Button */}
+      {/* Header with Save Buttons */}
       <div className="flex items-center justify-between p-6 border-b border-slate-700">
         <h2 className="text-xl font-semibold text-white">Architecture Results</h2>
-        <SaveResultsButton data={data} />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowSaveDialog(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          >
+            <Save className="w-4 h-4" />
+            Save Solution
+          </button>
+          <SaveResultsButton data={data} />
+        </div>
       </div>
 
       {/* Tabs */}
@@ -91,6 +132,82 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({ data }) => {
         {activeTab === 'pricing' && <PricingTab pricing={data.pricing} />}
         {activeTab === 'diagram' && <DiagramTab diagramUrl={data.diagramUrl} />}
       </div>
+
+      {/* Save Solution Dialog */}
+      {showSaveDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-white mb-4">Save Solution</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  value={saveTitle}
+                  onChange={(e) => setSaveTitle(e.target.value)}
+                  placeholder="Enter solution title..."
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={saveDescription}
+                  onChange={(e) => setSaveDescription(e.target.value)}
+                  placeholder="Enter solution description..."
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 h-20 resize-none"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Tags
+                </label>
+                <input
+                  type="text"
+                  value={saveTags}
+                  onChange={(e) => setSaveTags(e.target.value)}
+                  placeholder="Enter tags separated by commas..."
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3 mt-6">
+              <button
+                onClick={handleSaveSolution}
+                disabled={!saveTitle.trim() || saving}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Save Solution
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={() => setShowSaveDialog(false)}
+                className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

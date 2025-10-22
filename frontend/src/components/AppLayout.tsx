@@ -7,7 +7,7 @@
 
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Activity, Zap } from 'lucide-react'
+import { Activity, Zap, BarChart3 } from 'lucide-react'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -44,6 +44,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               >
                 <Zap className="h-4 w-4" />
                 <span>Generator</span>
+              </Link>
+              
+              <Link
+                to="/dashboard"
+                className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
+                  isActive('/dashboard') 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700'
+                }`}
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span>Dashboard</span>
               </Link>
               
               <Link
