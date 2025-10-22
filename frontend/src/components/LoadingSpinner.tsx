@@ -12,13 +12,15 @@ interface LoadingSpinnerProps {
   message?: string
   onCancel?: () => void
   showCancel?: boolean
+  compact?: boolean
 }
 
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ 
   progress = 0, 
   message = "AI agent is creating your AWS infrastructure...",
   onCancel,
-  showCancel = true
+  showCancel = true,
+  compact = false
 }) => {
   const steps = [
     { id: 'init', label: 'Initializing', icon: Zap, completed: progress > 0 },
@@ -29,6 +31,28 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   ]
 
   const currentStep = steps.find(step => !step.completed) || steps[steps.length - 1]
+
+  if (compact) {
+    return (
+      <div className="bg-slate-900 rounded-lg border border-slate-700 p-4 text-center">
+        <div className="flex items-center justify-center space-x-3">
+          <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+          <div className="text-sm text-slate-300">{message}</div>
+          {progress > 0 && (
+            <div className="text-xs text-slate-400">{Math.round(progress)}%</div>
+          )}
+          {showCancel && onCancel && (
+            <button
+              onClick={onCancel}
+              className="ml-2 p-1 text-slate-400 hover:text-red-400 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-slate-800 rounded-lg border border-slate-700 p-8">

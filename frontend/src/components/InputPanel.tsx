@@ -12,13 +12,15 @@ interface InputPanelProps {
   setRequirements: (value: string) => void
   onSubmit: (e: React.FormEvent) => void
   loading: boolean
+  compact?: boolean
 }
 
 export const InputPanel: React.FC<InputPanelProps> = ({
   requirements,
   setRequirements,
   onSubmit,
-  loading
+  loading,
+  compact = false
 }) => {
   const [validationMessage, setValidationMessage] = useState<string>('')
   const [isValid, setIsValid] = useState<boolean>(false)
@@ -80,6 +82,80 @@ Examples:
     const newValue = requirements.replace(new RegExp(`${lastWord}$`), suggestion)
     setRequirements(newValue + ' ')
     setShowSuggestions(false)
+  }
+
+  if (compact) {
+    return (
+      <div className="flex flex-col h-full">
+        <form onSubmit={onSubmit} className="flex flex-col h-full space-y-4">
+          <div className="relative flex-1">
+            <textarea
+              value={requirements}
+              onChange={handleInputChange}
+              onFocus={() => setShowSuggestions(requirements.length > 0)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              placeholder={placeholderText}
+              className={`w-full h-full px-4 py-3 bg-slate-700 border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-colors ${
+                isValid ? 'border-green-500/50' : characterCount > 0 ? 'border-yellow-500/50' : 'border-slate-600'
+              }`}
+              disabled={loading}
+            />
+            
+            {/* Suggestions dropdown */}
+            {showSuggestions && requirements.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-slate-700 border border-slate-600 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
+                {suggestions
+                  .filter(suggestion => 
+                    suggestion.toLowerCase().includes(requirements.toLowerCase()) ||
+                    requirements.toLowerCase().includes(suggestion.toLowerCase())
+                  )
+                  .slice(0, 5)
+                  .map((suggestion, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => insertSuggestion(suggestion)}
+                      className="w-full px-4 py-2 text-left text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+                    >
+                      {suggestion}
+                    </button>
+                  ))
+                }
+              </div>
+            )}
+          </div>
+
+          {/* Validation message */}
+          {validationMessage && (
+            <div className={`flex items-center gap-2 text-sm ${
+              isValid ? 'text-green-400' : 'text-yellow-400'
+            }`}>
+              {isValid ? (
+                <CheckCircle className="w-4 h-4" />
+              ) : (
+                <AlertCircle className="w-4 h-4" />
+              )}
+              <span>{validationMessage}</span>
+            </div>
+          )}
+          
+          <button
+            type="submit"
+            disabled={loading || !isValid}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200 flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              'Generate Solution'
+            )}
+          </button>
+        </form>
+      </div>
+    )
   }
 
   return (
