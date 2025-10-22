@@ -7,7 +7,8 @@
 
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { AppLayout } from './components/AppLayout'
+import { ThemeProvider } from './contexts/ThemeContext'
+import Header from './components/Header'
 
 interface ArchitectureData {
   cfTemplate: string
@@ -34,18 +35,23 @@ function App() {
   const [architectureData, setArchitectureData] = useState<ArchitectureData | null>(null)
 
   return (
-    <AppLayout>
-      <Outlet context={{
-        requirements,
-        setRequirements,
-        isGenerating,
-        setIsGenerating,
-        error,
-        setError,
-        architectureData,
-        setArchitectureData
-      }} />
-    </AppLayout>
+    <ThemeProvider>
+      <div className="flex flex-col h-screen">
+        <Header />
+        <main className="flex-1 overflow-hidden">
+          <Outlet context={{
+            requirements,
+            setRequirements,
+            isGenerating,
+            setIsGenerating,
+            error,
+            setError,
+            architectureData,
+            setArchitectureData
+          }} />
+        </main>
+      </div>
+    </ThemeProvider>
   )
 }
 

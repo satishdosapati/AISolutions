@@ -1,3 +1,4 @@
+# Nebula - AI-Powered AWS Solution Builder
 # FastAPI backend dependencies
 fastapi>=0.104.1
 uvicorn[standard]>=0.37.0

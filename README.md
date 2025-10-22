@@ -1,4 +1,4 @@
-# AWS Agentic Web UI
+# Nebula - AI-Powered AWS Solution Builder
 
 A modern web interface for generating AWS CloudFormation templates, pricing estimates, and architecture diagrams using AI agents and MCP servers.
 

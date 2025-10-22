@@ -9,7 +9,7 @@
 
 import { createBrowserRouter } from 'react-router-dom'
 import App from './App'
-import GeneratorPage from './pages/GeneratorPage'
+import Workspace from './pages/Workspace'
 import ObservabilityPage from './pages/ObservabilityPage'
 import DashboardPage from './pages/DashboardPage'
 
@@ -20,7 +20,7 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <GeneratorPage />,
+        element: <Workspace />,
       },
       {
         path: 'observability',
