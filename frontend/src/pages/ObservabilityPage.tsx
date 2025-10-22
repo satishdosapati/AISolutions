@@ -2,25 +2,36 @@
  * ObservabilityPage Component
  * 
  * Simple page that displays real-time backend logs.
- * Shows the last 100 log entries with live updates.
+ * Shows the last 100 log entries with live updates and filtering.
  */
 
-import React, { useState, useEffect } from 'react'
-import { Activity, RefreshCw, Trash2 } from 'lucide-react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { Activity, RefreshCw, Trash2, Filter } from 'lucide-react'
 import { getEvents, ObservabilityEvent } from '../services/api'
+
+type LogLevel = 'all' | 'error' | 'warning' | 'success' | 'info'
 
 const ObservabilityPage: React.FC = () => {
   const [logs, setLogs] = useState<ObservabilityEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [logLevel, setLogLevel] = useState<LogLevel>('all')
 
   // Load logs from backend
   const loadLogs = async () => {
     try {
       setError(null)
       const response = await getEvents(100)
-      setLogs(response.events)
+      
+      // Deduplicate logs by message and timestamp
+      const uniqueLogs = response.events.filter((log, index, self) => 
+        index === self.findIndex((l) => 
+          l.message === log.message && l.timestamp === log.timestamp
+        )
+      )
+      
+      setLogs(uniqueLogs)
       setLoading(false)
     } catch (err) {
       console.error('Failed to load logs:', err)
@@ -52,6 +63,21 @@ const ObservabilityPage: React.FC = () => {
     }
   }
 
+  // Determine log level from message
+  const getLogLevel = (message: string): LogLevel => {
+    const msg = message.toLowerCase()
+    if (msg.includes('error') || msg.includes('failed') || msg.includes('❌')) {
+      return 'error'
+    } else if (msg.includes('warning') || msg.includes('warn') || msg.includes('⚠️')) {
+      return 'warning'
+    } else if (msg.includes('success') || msg.includes('completed') || msg.includes('✅')) {
+      return 'success'
+    } else if (msg.includes('info:')) {
+      return 'info'
+    }
+    return 'info'
+  }
+
   // Get color based on log type/priority (terminal-style colors)
   const getLogColor = (log: ObservabilityEvent) => {
     const message = log.message.toLowerCase()
@@ -71,6 +97,23 @@ const ObservabilityPage: React.FC = () => {
     }
     return 'text-slate-400'
   }
+
+  // Filter logs by selected level
+  const filteredLogs = useMemo(() => {
+    if (logLevel === 'all') return logs
+    return logs.filter(log => getLogLevel(log.message) === logLevel)
+  }, [logs, logLevel])
+
+  // Count logs by level
+  const logCounts = useMemo(() => {
+    return {
+      all: logs.length,
+      error: logs.filter(log => getLogLevel(log.message) === 'error').length,
+      warning: logs.filter(log => getLogLevel(log.message) === 'warning').length,
+      success: logs.filter(log => getLogLevel(log.message) === 'success').length,
+      info: logs.filter(log => getLogLevel(log.message) === 'info').length,
+    }
+  }, [logs])
 
   return (
     <div className="space-y-6">
@@ -119,11 +162,71 @@ const ObservabilityPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Filter Buttons */}
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
+        <div className="flex items-center space-x-2 mb-3">
+          <Filter className="h-4 w-4 text-slate-400" />
+          <span className="text-sm font-medium text-slate-300">Filter by Level:</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setLogLevel('all')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              logLevel === 'all'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            All ({logCounts.all})
+          </button>
+          <button
+            onClick={() => setLogLevel('error')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              logLevel === 'error'
+                ? 'bg-red-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            🔴 Errors ({logCounts.error})
+          </button>
+          <button
+            onClick={() => setLogLevel('warning')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              logLevel === 'warning'
+                ? 'bg-yellow-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            🟡 Warnings ({logCounts.warning})
+          </button>
+          <button
+            onClick={() => setLogLevel('success')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              logLevel === 'success'
+                ? 'bg-green-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            🟢 Success ({logCounts.success})
+          </button>
+          <button
+            onClick={() => setLogLevel('info')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              logLevel === 'info'
+                ? 'bg-cyan-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            ℹ️ Info ({logCounts.info})
+          </button>
+        </div>
+      </div>
+
       {/* Stats */}
       <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div className="text-sm text-slate-400">
-            Total Logs: <span className="text-slate-100 font-semibold">{logs.length}</span>
+            Showing: <span className="text-slate-100 font-semibold">{filteredLogs.length}</span> of <span className="text-slate-100 font-semibold">{logs.length}</span> logs
           </div>
           <div className="text-sm text-slate-400">
             Status: <span className={`font-semibold ${autoRefresh ? 'text-green-400' : 'text-yellow-400'}`}>
@@ -147,13 +250,18 @@ const ObservabilityPage: React.FC = () => {
 
       {/* Terminal-style Logs Display */}
       <div className="bg-black border border-slate-700 rounded-lg overflow-hidden shadow-2xl">
-        <div className="px-4 py-2 border-b border-slate-700 bg-slate-900 flex items-center space-x-2">
-          <div className="flex space-x-1.5">
-            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+        <div className="px-4 py-2 border-b border-slate-700 bg-slate-900 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="flex space-x-1.5">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+            </div>
+            <span className="text-sm text-slate-400 ml-2">aws-agentic-backend.service</span>
           </div>
-          <span className="text-sm text-slate-400 ml-2">aws-agentic-backend.service</span>
+          <div className="text-xs text-slate-500">
+            Filter: {logLevel === 'all' ? 'All Levels' : logLevel.charAt(0).toUpperCase() + logLevel.slice(1)}
+          </div>
         </div>
         
         <div className="overflow-y-auto bg-black p-4" style={{ maxHeight: '600px' }}>
@@ -162,15 +270,15 @@ const ObservabilityPage: React.FC = () => {
               <RefreshCw className="h-4 w-4 inline animate-spin mr-2" />
               <span>Loading logs...</span>
             </div>
-          ) : logs.length === 0 ? (
+          ) : filteredLogs.length === 0 ? (
             <div className="text-slate-500 font-mono text-sm">
-              <span className="text-slate-600">$</span> No logs available
+              <span className="text-slate-600">$</span> No logs matching filter "{logLevel}"
             </div>
           ) : (
             <div className="font-mono text-sm space-y-0.5">
-              {logs.map((log, index) => (
+              {filteredLogs.map((log, index) => (
                 <div
-                  key={log.id || index}
+                  key={`${log.id}-${index}`}
                   className="hover:bg-slate-900/30"
                 >
                   <div className="flex items-start space-x-2">
