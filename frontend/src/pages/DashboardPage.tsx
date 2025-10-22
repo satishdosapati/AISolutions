@@ -10,7 +10,6 @@ import {
   BarChart3, 
   Clock, 
   Search, 
-  Plus, 
   Eye, 
   Trash2, 
   TrendingUp,
@@ -39,7 +38,6 @@ const Dashboard: React.FC = () => {
   const [templates, setTemplates] = useState<TemplateType[]>([])
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedTags] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'solutions' | 'templates' | 'analytics'>('solutions')
 
@@ -77,7 +75,7 @@ const Dashboard: React.FC = () => {
   // Handle viewing a solution
   const handleViewSolution = (solution: SolutionData) => {
     // Load solution data and navigate to generator
-    setRequirements(solution.description)
+    setRequirements(solution.metadata.description)
     window.location.href = '/'
   }
 
@@ -86,7 +84,7 @@ const Dashboard: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this solution?')) {
       try {
         await deleteSolution(solutionId)
-        setSolutions(solutions.filter(s => s.id !== solutionId))
+        setSolutions(solutions.filter(s => s.metadata.id !== solutionId))
       } catch (error) {
         console.error('Failed to delete solution:', error)
       }
@@ -200,22 +198,22 @@ const Dashboard: React.FC = () => {
               <div className="grid gap-4">
                 {solutions
                   .filter(solution => 
-                    solution.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    solution.description.toLowerCase().includes(searchTerm.toLowerCase())
+                    solution.metadata.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    solution.metadata.description.toLowerCase().includes(searchTerm.toLowerCase())
                   )
                   .map((solution) => (
-                    <div key={solution.id} className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+                    <div key={solution.metadata.id} className="bg-slate-800 rounded-lg border border-slate-700 p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h3 className="text-lg font-semibold text-white mb-2">{solution.title}</h3>
-                          <p className="text-slate-400 text-sm mb-3 line-clamp-2">{solution.description}</p>
+                          <h3 className="text-lg font-semibold text-white mb-2">{solution.metadata.title}</h3>
+                          <p className="text-slate-400 text-sm mb-3 line-clamp-2">{solution.metadata.description}</p>
                           <div className="flex items-center space-x-4 text-xs text-slate-500">
                             <span className="flex items-center">
                               <Clock className="w-3 h-3 mr-1" />
-                              {new Date(solution.created_at).toLocaleDateString()}
+                              {new Date(solution.metadata.created_at).toLocaleDateString()}
                             </span>
-                            {solution.tags && solution.tags.length > 0 && (
-                              <span>{solution.tags.join(', ')}</span>
+                            {solution.metadata.tags && solution.metadata.tags.length > 0 && (
+                              <span>{solution.metadata.tags.join(', ')}</span>
                             )}
                           </div>
                         </div>
@@ -227,7 +225,7 @@ const Dashboard: React.FC = () => {
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDeleteSolution(solution.id)}
+                            onClick={() => handleDeleteSolution(solution.metadata.id)}
                             className="p-2 text-slate-400 hover:text-red-400 transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -278,15 +276,15 @@ const Dashboard: React.FC = () => {
                   <h3 className="text-lg font-semibold text-white mb-4">Recent Solutions</h3>
                   <div className="space-y-3">
                     {stats?.recent_solutions.slice(0, 5).map((solution) => (
-                      <div key={solution.id} className="flex items-center justify-between">
+                      <div key={solution.metadata.id} className="flex items-center justify-between">
                         <div>
-                          <p className="text-white text-sm">{solution.title}</p>
+                          <p className="text-white text-sm">{solution.metadata.title}</p>
                           <p className="text-slate-400 text-xs">
-                            {new Date(solution.created_at).toLocaleDateString()}
+                            {new Date(solution.metadata.created_at).toLocaleDateString()}
                           </p>
                         </div>
                         <span className="text-xs text-slate-500">
-                          {solution.tags?.join(', ')}
+                          {solution.metadata.tags?.join(', ')}
                         </span>
                       </div>
                     ))}
@@ -297,8 +295,8 @@ const Dashboard: React.FC = () => {
                 <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
                   <h3 className="text-lg font-semibold text-white mb-4">Popular Tags</h3>
                   <div className="flex flex-wrap gap-2">
-                    {stats?.popular_tags.map((tag) => (
-                      <span key={tag} className="px-3 py-1 bg-slate-700 text-slate-300 text-sm rounded-full">
+                    {stats?.popular_tags.map((tag, index) => (
+                      <span key={`${tag}-${index}`} className="px-3 py-1 bg-slate-700 text-slate-300 text-sm rounded-full">
                         {tag}
                       </span>
                     ))}
