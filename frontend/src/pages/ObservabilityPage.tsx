@@ -52,20 +52,24 @@ const ObservabilityPage: React.FC = () => {
     }
   }
 
-  // Get color based on log type/priority
+  // Get color based on log type/priority (terminal-style colors)
   const getLogColor = (log: ObservabilityEvent) => {
     const message = log.message.toLowerCase()
     
-    if (message.includes('error') || message.includes('failed')) {
+    if (message.includes('error') || message.includes('failed') || message.includes('❌')) {
       return 'text-red-400'
-    } else if (message.includes('warning') || message.includes('warn')) {
-      return 'text-yellow-400'
-    } else if (message.includes('success') || message.includes('completed')) {
+    } else if (message.includes('warning') || message.includes('warn') || message.includes('⚠️')) {
+      return 'text-yellow-300'
+    } else if (message.includes('success') || message.includes('completed') || message.includes('✅')) {
       return 'text-green-400'
-    } else if (message.includes('info') || message.includes('processing')) {
-      return 'text-blue-400'
+    } else if (message.includes('info:') || message.includes('processing')) {
+      return 'text-cyan-400'
+    } else if (message.includes('🚀') || message.includes('🎬') || message.includes('🤖')) {
+      return 'text-blue-300'
+    } else if (message.includes('💰') || message.includes('📊') || message.includes('🔧')) {
+      return 'text-purple-300'
     }
-    return 'text-slate-300'
+    return 'text-slate-400'
   }
 
   return (
@@ -141,35 +145,39 @@ const ObservabilityPage: React.FC = () => {
         </div>
       )}
 
-      {/* Logs Display */}
-      <div className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
-        <div className="p-4 border-b border-slate-700 bg-slate-900">
-          <h2 className="text-lg font-semibold text-slate-100">Log Entries</h2>
+      {/* Terminal-style Logs Display */}
+      <div className="bg-black border border-slate-700 rounded-lg overflow-hidden shadow-2xl">
+        <div className="px-4 py-2 border-b border-slate-700 bg-slate-900 flex items-center space-x-2">
+          <div className="flex space-x-1.5">
+            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          </div>
+          <span className="text-sm text-slate-400 ml-2">aws-agentic-backend.service</span>
         </div>
         
-        <div className="overflow-y-auto" style={{ maxHeight: '600px' }}>
+        <div className="overflow-y-auto bg-black p-4" style={{ maxHeight: '600px' }}>
           {loading && logs.length === 0 ? (
-            <div className="p-8 text-center text-slate-400">
-              <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2" />
-              <p>Loading logs...</p>
+            <div className="text-green-400 font-mono text-sm">
+              <RefreshCw className="h-4 w-4 inline animate-spin mr-2" />
+              <span>Loading logs...</span>
             </div>
           ) : logs.length === 0 ? (
-            <div className="p-8 text-center text-slate-400">
-              <Activity className="h-8 w-8 mx-auto mb-2" />
-              <p>No logs available</p>
+            <div className="text-slate-500 font-mono text-sm">
+              <span className="text-slate-600">$</span> No logs available
             </div>
           ) : (
-            <div className="font-mono text-sm">
+            <div className="font-mono text-sm space-y-0.5">
               {logs.map((log, index) => (
                 <div
                   key={log.id || index}
-                  className="px-4 py-2 hover:bg-slate-700/50 border-b border-slate-700/50 last:border-b-0"
+                  className="hover:bg-slate-900/30"
                 >
-                  <div className="flex items-start space-x-3">
-                    <span className="text-slate-500 text-xs whitespace-nowrap mt-0.5">
-                      {formatTime(log.timestamp)}
+                  <div className="flex items-start space-x-2">
+                    <span className="text-slate-600 text-xs shrink-0 select-none">
+                      [{formatTime(log.timestamp)}]
                     </span>
-                    <span className={`flex-1 ${getLogColor(log)} break-all`}>
+                    <span className={`${getLogColor(log)} leading-relaxed break-words`}>
                       {log.message}
                     </span>
                   </div>
