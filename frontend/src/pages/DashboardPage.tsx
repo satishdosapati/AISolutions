@@ -112,7 +112,7 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="w-full max-w-7xl mx-auto space-y-8">
       {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold text-slate-100 mb-4">

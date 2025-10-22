@@ -24,7 +24,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     <div className="min-h-screen bg-slate-900 text-white">
       {/* Header Navigation */}
       <header className="bg-slate-800 border-b border-slate-700">
-        <div className="container mx-auto px-4 py-4 max-w-6xl">
+        <div className="w-full px-4 py-4">
           <div className="flex items-center justify-between">
             {/* Logo/Title */}
             <div className="flex items-center space-x-3">
@@ -75,7 +75,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       </header>
       
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-6xl">
+      <main className="w-full px-4 py-8">
         {children}
       </main>
     </div>
