@@ -4,14 +4,16 @@
  * Enhanced pricing display with better formatting and breakdown
  */
 
-import React from 'react'
-import { DollarSign, Info, AlertCircle } from 'lucide-react'
+import React, { useState } from 'react'
+import { DollarSign, Info, AlertCircle, Copy, Check, Download, Share2 } from 'lucide-react'
 
 interface PricingTabProps {
   pricing: any
 }
 
 export const PricingTab: React.FC<PricingTabProps> = ({ pricing }) => {
+  const [copied, setCopied] = useState(false)
+
   if (!pricing) {
     return (
       <div className="text-center py-8">
@@ -30,15 +32,98 @@ export const PricingTab: React.FC<PricingTabProps> = ({ pricing }) => {
     }).format(amount)
   }
 
+  const generatePricingSummary = () => {
+    const summary = {
+      totalMonthlyCost: formatCurrency(parseFloat(pricing.totalMonthlyCost) || 0),
+      annualEstimate: pricing.annual ? formatCurrency(pricing.annual) : null,
+      region: pricing.region || 'us-east-1',
+      breakdown: pricing.breakdown?.map((service: any) => ({
+        service: service.service,
+        cost: formatCurrency(parseFloat(service.cost) || 0),
+        type: service.type || 'Standard'
+      })) || []
+    }
+    return JSON.stringify(summary, null, 2)
+  }
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(generatePricingSummary())
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
+  const handleDownload = () => {
+    const data = generatePricingSummary()
+    const blob = new Blob([data], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'pricing-summary.json'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleShare = async () => {
+    const summary = generatePricingSummary()
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'AWS Architecture Pricing Summary',
+          text: `Monthly Cost: ${formatCurrency(parseFloat(pricing.totalMonthlyCost) || 0)}`,
+          url: window.location.href
+        })
+      } catch (err) {
+        console.error('Failed to share:', err)
+      }
+    } else {
+      // Fallback to copy
+      handleCopy()
+    }
+  }
+
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h3 className="text-lg font-semibold text-white mb-2">Cost Breakdown</h3>
-        <p className="text-sm text-slate-400">
-          Estimated monthly costs for {pricing.region || 'us-east-1'} region
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-2">Cost Breakdown</h3>
+          <p className="text-sm text-slate-400">
+            Estimated monthly costs for {pricing.region || 'us-east-1'} region
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+          >
+            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+          
+          <button
+            onClick={handleDownload}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Download
+          </button>
+          
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          >
+            <Share2 className="w-4 h-4" />
+            Share
+          </button>
+        </div>
       </div>
 
       {/* Total Cost Card */}

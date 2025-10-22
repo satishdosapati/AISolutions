@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react'
-import { Download, Maximize2, RotateCcw, AlertCircle, Image as ImageIcon } from 'lucide-react'
+import { Download, Maximize2, RotateCcw, AlertCircle, Image as ImageIcon, Copy, Check, Share2 } from 'lucide-react'
 
 interface DiagramTabProps {
   diagramUrl: string
@@ -14,6 +14,7 @@ interface DiagramTabProps {
 export const DiagramTab: React.FC<DiagramTabProps> = ({ diagramUrl }) => {
   const [imageError, setImageError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [copied, setCopied] = useState(false)
 
   const handleDownload = () => {
     const link = document.createElement('a')
@@ -22,6 +23,33 @@ export const DiagramTab: React.FC<DiagramTabProps> = ({ diagramUrl }) => {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(diagramUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'AWS Architecture Diagram',
+          text: 'Check out this AWS architecture diagram',
+          url: diagramUrl
+        })
+      } catch (err) {
+        console.error('Failed to share:', err)
+      }
+    } else {
+      // Fallback to copy URL
+      handleCopyUrl()
+    }
   }
 
   const handleImageLoad = () => {
@@ -72,6 +100,22 @@ export const DiagramTab: React.FC<DiagramTabProps> = ({ diagramUrl }) => {
             title="Refresh diagram"
           >
             <RotateCcw className="w-4 h-4" />
+          </button>
+          
+          <button
+            onClick={handleCopyUrl}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+          >
+            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            {copied ? 'Copied!' : 'Copy URL'}
+          </button>
+          
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          >
+            <Share2 className="w-4 h-4" />
+            Share
           </button>
           
           <button

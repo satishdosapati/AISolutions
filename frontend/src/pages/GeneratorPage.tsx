@@ -126,21 +126,18 @@ const Generator: React.FC = () => {
 
       {/* Loading State with Progress */}
       {isGenerating && (
-        <div className="bg-slate-800 border border-slate-700 rounded-lg p-8">
-          <div className="text-center space-y-4">
-            <LoadingSpinner />
-            <div className="space-y-2">
-              <div className="text-lg font-medium text-slate-200">{progressMessage}</div>
-              <div className="w-full bg-slate-700 rounded-full h-2.5">
-                <div 
-                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                ></div>
-              </div>
-              <div className="text-sm text-slate-400">{progress}% complete</div>
-            </div>
-          </div>
-        </div>
+        <LoadingSpinner 
+          progress={progress}
+          message={progressMessage}
+          onCancel={() => {
+            setIsGenerating(false)
+            setCurrentTaskId(null)
+            setProgress(0)
+            setProgressMessage('')
+            setError('Generation cancelled by user')
+          }}
+          showCancel={true}
+        />
       )}
 
       {/* Error State */}

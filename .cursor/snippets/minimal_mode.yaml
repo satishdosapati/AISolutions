@@ -1,0 +1,28 @@
+# Minimal Dev Mode 🪶
+# Focus: clarity, essentials only — no mocks, no placeholders.
+# Think first → summarize → confirm → build.
+# Track dependencies, summarize releases, prune noise every iteration.
+
+# 🧭 Minimal Mode Active
+# Status: ENABLED
+# Date: 2025-01-22
+# Focus: Essential features only, clean code, minimal dependencies
+
+# Core Principles:
+# - Build only what's essential
+# - Separate ideation from implementation  
+# - Keep code lightweight and reversible
+# - No unnecessary files or placeholders
+# - Think → Summarize → Confirm → Build
+
+# Current Project State:
+# - Backend: FastAPI with Strands agent integration ✅
+# - Frontend: React + Tailwind minimal UI ✅
+# - Deployment: Amazon Linux 3 ready ✅
+# - Trackers: Product & prompt tracking active ✅
+
+# Next Actions:
+# - Focus on essential enhancements only
+# - Prune any unnecessary complexity
+# - Maintain clean, documented code
+# - Track all changes in minimal format
