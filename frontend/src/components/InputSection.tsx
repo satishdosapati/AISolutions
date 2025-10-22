@@ -46,7 +46,7 @@ export default function InputSection({
         <Textarea
           placeholder="Describe your AWS use case in detail. For example: 'I need a scalable web application with RDS database, auto-scaling EC2 instances, and CloudFront for content delivery...'"
           value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value)}
           className="min-h-40 resize-none text-base"
         />
 

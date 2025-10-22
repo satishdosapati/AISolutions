@@ -7,7 +7,7 @@ interface CodeDisplayProps {
   language?: string;
 }
 
-export default function CodeDisplay({ code, language = "yaml" }: CodeDisplayProps) {
+export default function CodeDisplay({ code }: CodeDisplayProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {

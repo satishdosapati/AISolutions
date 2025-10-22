@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileCode, DollarSign, List, Layout, Lightbulb, Brain, Network } from "lucide-react";
+import { FileCode, DollarSign, List, Layout, Lightbulb, Network } from "lucide-react";
 import CodeDisplay from "./CodeDisplay";
 import CostEstimate from "./CostEstimate";
 import DeploymentSteps from "./DeploymentSteps";
@@ -37,8 +37,6 @@ export default function SolutionTabs({
   deploymentSteps,
   recommendations,
   architectureDiagram,
-  bedrockAnalysis,
-  source,
 }: SolutionTabsProps) {
   return (
     <Tabs defaultValue="cloudformation" className="w-full">

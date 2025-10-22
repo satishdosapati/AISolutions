@@ -18,6 +18,9 @@ interface GenerateSolutionResponse {
     costEstimate: any;
     deploymentSteps: string | null;
     recommendations: string | null;
+    architectureDiagram?: any;
+    bedrockAnalysis?: any;
+    source?: string;
   };
   usedFallback: boolean;
   message: string;
@@ -31,7 +34,7 @@ export default function Workspace() {
     Error,
     GenerateSolutionRequest
   >({
-    mutationFn: async (data) => {
+    mutationFn: async (data: GenerateSolutionRequest) => {
       const response = await fetch("/api/solutions/generate", {
         method: "POST",
         headers: {
@@ -46,8 +49,8 @@ export default function Workspace() {
       
       return response.json();
     },
-    onSuccess: (data) => {
-      const { solution: sol, usedFallback, message } = data;
+    onSuccess: (data: GenerateSolutionResponse) => {
+      const { solution: sol } = data;
 
       const parsedCostEstimate = typeof sol.costEstimate === "string" 
         ? JSON.parse(sol.costEstimate)
@@ -100,7 +103,7 @@ export default function Workspace() {
         source: sol.source || "unknown",
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error("Generation failed:", error);
     },
   });
