@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "./ui/button";
+import { Textarea } from "./ui/textarea";
+import { Badge } from "./ui/badge";
 import { Sparkles, Loader2 } from "lucide-react";
 
 interface InputSectionProps {

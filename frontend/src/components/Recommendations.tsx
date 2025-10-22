@@ -1,5 +1,5 @@
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "./ui/card";
+import { Badge } from "./ui/badge";
 import { Lightbulb, Shield, Zap, DollarSign } from "lucide-react";
 
 interface Recommendation {

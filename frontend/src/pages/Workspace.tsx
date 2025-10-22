@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import InputSection from "@/components/InputSection";
-import SolutionTabs from "@/components/SolutionTabs";
+import InputSection from "../components/InputSection";
+import SolutionTabs from "../components/SolutionTabs";
 
 interface GenerateSolutionRequest {
   prompt: string;

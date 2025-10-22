@@ -1,4 +1,4 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { FileCode, DollarSign, List, Layout, Lightbulb, Network } from "lucide-react";
 import CodeDisplay from "./CodeDisplay";
 import CostEstimate from "./CostEstimate";

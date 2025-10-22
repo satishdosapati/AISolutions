@@ -1,6 +1,6 @@
 import { Moon, Sun, Cloud } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useTheme } from "@/contexts/ThemeContext";
+import { Button } from "./ui/button";
+import { useTheme } from "../contexts/ThemeContext";
 import { Link, useLocation } from "react-router-dom";
 
 export default function Header() {
