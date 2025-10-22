@@ -9,17 +9,13 @@ import { useOutletContext } from 'react-router-dom'
 import { 
   BarChart3, 
   Clock, 
-  Tag, 
   Search, 
-  Filter, 
   Plus, 
   Eye, 
   Trash2, 
-  Download,
-  Star,
   TrendingUp,
   Archive,
-  Template
+  Layout
 } from 'lucide-react'
 import { 
   listSolutions, 
@@ -52,7 +48,7 @@ const Dashboard: React.FC = () => {
   const [templates, setTemplates] = useState<TemplateType[]>([])
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [selectedTags] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'solutions' | 'templates' | 'analytics'>('solutions')
 
@@ -146,7 +142,7 @@ const Dashboard: React.FC = () => {
                 <p className="text-slate-400 text-sm">Templates Available</p>
                 <p className="text-3xl font-bold text-white">{templates.length}</p>
               </div>
-              <Template className="w-12 h-12 text-green-400" />
+              <Layout className="w-12 h-12 text-green-400" />
             </div>
           </div>
           
@@ -167,7 +163,7 @@ const Dashboard: React.FC = () => {
         <div className="flex border-b border-slate-700">
           {[
             { id: 'solutions' as const, label: 'My Solutions', icon: Archive },
-            { id: 'templates' as const, label: 'Templates', icon: Template },
+            { id: 'templates' as const, label: 'Templates', icon: Layout },
             { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 }
           ].map((tab) => {
             const Icon = tab.icon
