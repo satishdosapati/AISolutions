@@ -5,14 +5,9 @@
  * State is preserved when switching between tabs.
  */
 
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
-import { InputPanel } from './components/InputPanel'
-import { LoadingSpinner } from './components/LoadingSpinner'
-import { ErrorAlert } from './components/ErrorAlert'
-import { OutputPanel } from './components/OutputPanel'
-import { generateArchitecture } from './services/api'
 
 interface ArchitectureData {
   cfTemplate: string
@@ -37,32 +32,6 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [architectureData, setArchitectureData] = useState<ArchitectureData | null>(null)
-
-  const handleGenerate = async () => {
-    if (!requirements.trim()) {
-      setError('Please enter your AWS architecture requirements')
-      return
-    }
-
-    setIsGenerating(true)
-    setError(null)
-    setArchitectureData(null)
-
-    try {
-      const response = await generateArchitecture(requirements)
-      setArchitectureData(response.data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
-  const handleClear = () => {
-    setRequirements('')
-    setError(null)
-    setArchitectureData(null)
-  }
 
   return (
     <AppLayout>

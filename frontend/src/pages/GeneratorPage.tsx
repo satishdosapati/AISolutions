@@ -100,15 +100,6 @@ const Generator: React.FC = () => {
     }
   }
 
-  const handleClear = () => {
-    setRequirements('')
-    setError(null)
-    setArchitectureData(null)
-    setProgress(0)
-    setProgressMessage('')
-    setCurrentTaskId(null)
-  }
-
   return (
     <div className="space-y-8">
       {/* Page Header */}
@@ -125,10 +116,12 @@ const Generator: React.FC = () => {
       {/* Input Panel */}
       <InputPanel
         requirements={requirements}
-        onRequirementsChange={setRequirements}
-        onGenerate={handleGenerate}
-        onClear={handleClear}
-        isGenerating={isGenerating}
+        setRequirements={setRequirements}
+        onSubmit={(e) => {
+          e.preventDefault()
+          handleGenerate()
+        }}
+        loading={isGenerating}
       />
 
       {/* Loading State with Progress */}
@@ -151,7 +144,7 @@ const Generator: React.FC = () => {
       )}
 
       {/* Error State */}
-      {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
+      {error && <ErrorAlert error={error} onDismiss={() => setError(null)} />}
 
       {/* Results */}
       {architectureData && !isGenerating && (
