@@ -70,7 +70,6 @@ export const PricingTab: React.FC<PricingTabProps> = ({ pricing }) => {
   }
 
   const handleShare = async () => {
-    const summary = generatePricingSummary()
     if (navigator.share) {
       try {
         await navigator.share({
